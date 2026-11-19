@@ -311,7 +311,7 @@ button.perch:hover{transform:rotate(-3deg) scale(1.06)}
 .gbody{padding:10px 16px 14px;display:flex;flex-direction:column;gap:12px}
 .gtop{display:flex;align-items:flex-start;gap:12px;position:relative;z-index:1}
 .gtop > .ic{--s:72px;border-width:3px;box-shadow:3px 3px 0 var(--shadow);margin-top:-36px}
-.gtop h3{flex:1;min-width:0;margin:10px 0 0;font-family:var(--display);font-weight:600;font-size:1.35rem;line-height:1.15;overflow-wrap:anywhere}
+.gtop h3{flex:1;min-width:0;margin:4px 0 0;font-family:var(--display);font-weight:600;font-size:1.35rem;line-height:1.15;overflow-wrap:anywhere}
 .icon-btn{border:2px solid var(--edge);background:var(--surface);border-radius:12px;width:36px;height:36px;display:grid;place-items:center;flex:none;box-shadow:2px 2px 0 var(--shadow);margin-top:8px}
 .icon-btn svg{width:17px;height:17px}
 
@@ -757,7 +757,7 @@ function renderDetail(id){
       </div>
       <div class="gbody">
         <div class="gtop">
-          ${slot(g.icon, `data-action="art" data-target="goal-icon" data-id="${esc(id)}"`, g.title + " icon", {c:goalColor(g)})}
+          ${g.icon ? slot(g.icon, `data-action="art" data-target="goal-icon" data-id="${esc(id)}"`, g.title + " icon", {c:goalColor(g)}) : ""}
           <h3 class="d-title">${esc(g.title)}</h3>
           <button class="btn" data-write data-action="goal-menu" data-id="${esc(id)}">Edit goal</button>
         </div>
@@ -1109,7 +1109,7 @@ function renderGoals(){
       </div>
       <div class="gbody">
         <div class="gtop">
-          ${slot(g.icon, `data-action="art" data-target="goal-icon" data-id="${esc(g.id)}"`, g.title + " icon", {c:goalColor(g)})}
+          ${g.icon ? slot(g.icon, `data-action="art" data-target="goal-icon" data-id="${esc(g.id)}"`, g.title + " icon", {c:goalColor(g)}) : ""}
           <h3><button class="g-open" data-action="open-goal" data-id="${esc(g.id)}">${esc(g.title)}</button></h3>
           <button class="icon-btn" data-write data-action="goal-menu" data-id="${esc(g.id)}" aria-label="Edit ${esc(g.title)}">${I.dots}</button>
         </div>
@@ -1195,8 +1195,8 @@ function openGoalSheet(id){
         <input id="g-mcur" type="number" inputmode="numeric" placeholder="Latest score" value="${esc(m.current ?? "")}" aria-label="Latest score">
         <input id="g-mfloor" type="number" inputmode="numeric" placeholder="Lowest possible, e.g. 400" value="${esc(m.floor ?? "")}" aria-label="Lowest possible score">
       </div></div>
-    ${g && S.assets && (g.icon || g.headerAsset) ? `<div class="field" style="flex-direction:row;gap:8px;flex-wrap:wrap">
-      ${g.icon ? `<button class="btn" data-action="goal-icon-remove" data-id="${esc(g.id)}">Remove goal icon</button>` : ""}
+    ${g && S.assets ? `<div class="field" style="flex-direction:row;gap:8px;flex-wrap:wrap">
+      ${g.icon ? `<button class="btn" data-action="goal-icon-remove" data-id="${esc(g.id)}">Remove goal icon</button>` : `<button class="btn" data-action="art" data-target="goal-icon" data-id="${esc(g.id)}">Add a goal icon</button>`}
       ${g.headerAsset ? `<button class="btn" data-action="art-remove" data-id="${esc(g.id)}">Remove header art</button>` : ""}</div>` : ""}
     <div class="sheet-foot">
       ${g ? `<button class="btn danger" data-action="goal-delete">Delete goal</button>` : "<span></span>"}
