@@ -1351,9 +1351,9 @@ const GH = { cfg:null, remote:null, sha:null, etag:null, pending:[], pushing:fal
 const emptyData = () => ({ goals:{}, tasks:{}, routines:{}, settings:{ main:{} } });
 const clone = o => JSON.parse(JSON.stringify(o));
 function normalize(d){ d = d && typeof d === "object" ? d : {}; for(const k of ["goals","tasks","routines","settings"]) if(!d[k] || typeof d[k] !== "object") d[k] = {}; if(!d.settings.main) d.settings.main = {}; return d; }
-function api(path, opt = {}){
+function api(path, opt = {}, repo){
   const c = GH.cfg;
-  return fetch("https://api.github.com/repos/" + encodeURIComponent(c.owner) + "/" + encodeURIComponent(c.repo) + path, {
+  return fetch("https://api.github.com/repos/" + encodeURIComponent(c.owner) + "/" + encodeURIComponent(repo || c.repo) + path, {
     method: opt.method || "GET", body: opt.body, cache:"no-store",
     headers: { Authorization:"Bearer " + c.token, Accept: opt.accept || "application/vnd.github+json", "X-GitHub-Api-Version":"2022-11-28", ...(opt.headers || {}) }
   });
@@ -1472,8 +1472,81 @@ function ghSetup(err){
     <div class="field"><label for="gh-owner">GitHub username</label><input id="gh-owner" value="${esc(c.owner || guess)}" autocomplete="username" required></div>
     <div class="field"><label for="gh-repo">Data repo</label><input id="gh-repo" value="${esc(c.repo || "sunpath-data")}" required></div>
     <div class="field"><label for="gh-token">Token</label><input id="gh-token" type="password" value="" placeholder="github_pat_…" autocomplete="off" required></div>
-    <div class="sheet-foot"><span></span><button class="btn primary" type="submit">Connect</button></div>
+    <div class="sheet-foot">${LOGIN ? `<button type="button" class="btn ghost" data-action="gh-use-password">Use my password instead</button>` : "<span></span>"}<button class="btn primary" type="submit">Connect</button></div>
   </form>`;
+}
+/* ---- password login: the token, locked with a password, lives in login.json next to the page ----
+   PBKDF2 (600k rounds) turns the password into an AES-GCM key; only the locked copy is ever stored. */
+const SITE_REPO = location.pathname.split("/").filter(Boolean)[0] || "sunpath";
+const b64e = u8 => { let x = ""; for(const b of u8) x += String.fromCharCode(b); return btoa(x); };
+const b64d = str => Uint8Array.from(atob(str), c => c.charCodeAt(0));
+async function deriveKey(pw, salt, iter){
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pw), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name:"PBKDF2", salt, iterations:iter, hash:"SHA-256" }, base, { name:"AES-GCM", length:256 }, false, ["encrypt","decrypt"]);
+}
+async function lockToken(pw, cfg){
+  const salt = crypto.getRandomValues(new Uint8Array(16)), iv = crypto.getRandomValues(new Uint8Array(12)), iter = 600000;
+  const key = await deriveKey(pw, salt, iter);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name:"AES-GCM", iv }, key, new TextEncoder().encode(cfg.token)));
+  return { v:1, owner:cfg.owner, repo:cfg.repo, iter, salt:b64e(salt), iv:b64e(iv), ct:b64e(ct) };
+}
+async function unlockToken(pw, L){
+  const key = await deriveKey(pw, b64d(L.salt), L.iter);
+  return new TextDecoder().decode(await crypto.subtle.decrypt({ name:"AES-GCM", iv:b64d(L.iv) }, key, b64d(L.ct)));
+}
+async function fetchLogin(){
+  try{
+    const r = await fetch("login.json", { cache:"no-store" });
+    if(!r.ok) return null;
+    const L = await r.json();
+    return L && L.v === 1 && L.ct && L.salt && L.iv ? L : null;
+  }catch(_){ return null; }
+}
+let LOGIN = null;
+function ghLoginScreen(err){
+  document.getElementById("note").innerHTML = `<form class="card sticker setup" data-form="gh-login">
+    <h2 style="font-family:var(--display);font-weight:600;margin:0 0 6px">Welcome back</h2>
+    <p class="muted" style="margin-bottom:12px">Enter your planner password to open it on this device.</p>
+    ${err ? `<p class="note" style="margin:0 0 12px">${esc(err)}</p>` : ""}
+    <input type="text" autocomplete="username" value="${esc(LOGIN.owner)}" hidden aria-hidden="true">
+    <div class="field"><label for="gh-pw">Password</label><input id="gh-pw" type="password" autocomplete="current-password" required></div>
+    <p class="up-status" id="gh-pw-status" aria-live="polite"></p>
+    <div class="sheet-foot"><button type="button" class="btn ghost" data-action="gh-use-token">Use a token instead</button><button class="btn primary" type="submit">Unlock</button></div>
+  </form>`;
+  const f = document.getElementById("gh-pw"); f && f.focus();
+}
+function ghPwSheet(){
+  SH = { mode:"gh-pw" };
+  showSheet(`<h4 id="sheet-h">Password login</h4>
+    <p class="muted" style="margin-bottom:12px">New devices can use this password instead of the token. A phrase of 4 or 5 random words works well. At least 10 characters.</p>
+    <input type="text" autocomplete="username" value="${esc(GH.cfg.owner)}" hidden aria-hidden="true">
+    <div class="field"><label for="pw1">New password</label><input id="pw1" type="password" autocomplete="new-password"></div>
+    <div class="field"><label for="pw2">Same password again</label><input id="pw2" type="password" autocomplete="new-password"></div>
+    <p class="up-status" id="pw-status" aria-live="polite"></p>
+    <div id="pw-code"></div>
+    <div class="sheet-foot"><button class="btn ghost" data-action="gh-settings">Back</button><button class="btn primary" data-action="gh-pw-save" id="pw-save">Save password</button></div>`, "#pw1");
+}
+async function ghPwSave(){
+  const p1 = document.getElementById("pw1").value, p2 = document.getElementById("pw2").value, st = document.getElementById("pw-status"), btn = document.getElementById("pw-save");
+  if(p1.length < 10){ st.textContent = "Use at least 10 characters."; return; }
+  if(p1 !== p2){ st.textContent = "Those two don't match."; return; }
+  btn.disabled = true; st.textContent = "Locking your token…";
+  let L;
+  try{ L = await lockToken(p1, GH.cfg); }catch(_){ st.textContent = "This browser couldn't lock the token. Try another browser."; btn.disabled = false; return; }
+  st.textContent = "Saving…";
+  let sha = null, ok = false;
+  try{ const r = await api("/contents/login.json", {}, SITE_REPO); if(r.ok) sha = (await r.json()).sha; }catch(_){}
+  try{
+    const body = { message:"Sunpath: update password login", content: enc(JSON.stringify(L)) }; if(sha) body.sha = sha;
+    const r = await api("/contents/login.json", { method:"PUT", headers:{ "Content-Type":"application/json" }, body: JSON.stringify(body) }, SITE_REPO);
+    ok = r.ok;
+  }catch(_){}
+  if(ok){ st.textContent = "Password login is on. New devices can use it in a minute or two, once GitHub updates the site."; btn.disabled = false; return; }
+  SH.code = JSON.stringify(L);
+  st.textContent = "Almost done. Your token can't save to the sunpath repo, so send this code to Claude in chat and it will add it for you. It's locked with your password, so it's safe to share.";
+  document.getElementById("pw-code").innerHTML = `<div class="field"><textarea readonly rows="4" style="font-family:ui-monospace,monospace;font-size:.75rem">${esc(SH.code)}</textarea></div>
+    <button type="button" class="btn" data-action="gh-pw-copy" style="margin-bottom:12px">Copy code</button>`;
+  btn.disabled = false;
 }
 async function ghConnect(owner, repo, token){
   GH.cfg = { owner, repo, token };
@@ -1509,9 +1582,23 @@ function ghSettingsSheet(){
   SH = { mode:"gh" };
   showSheet(`<h4 id="sheet-h">Sync</h4>
     <p class="muted" style="margin-bottom:12px">Saving to <b>${esc(GH.cfg.owner)}/${esc(GH.cfg.repo)}</b> on GitHub. Status: ${esc(GH.status || "Synced")}.</p>
+    <div class="field" style="flex-direction:row;gap:8px;flex-wrap:wrap"><button class="btn" data-action="gh-pw">${LOGIN ? "Change password login" : "Set up password login"}</button></div>
     <div class="sheet-foot"><button class="btn danger" data-action="gh-forget">Disconnect this device</button>
       <span style="display:flex;gap:8px"><button class="btn" data-action="gh-sync">Sync now</button><button class="btn primary" data-action="close">Done</button></span></div>`, ".btn");
 }
+document.addEventListener("submit", async e => {
+  const lf = e.target.closest('[data-form="gh-login"]');
+  if(lf){
+    e.preventDefault();
+    const pw = document.getElementById("gh-pw").value, st = document.getElementById("gh-pw-status"), btn = lf.querySelector('button[type="submit"]');
+    if(!pw || !LOGIN) return;
+    btn.disabled = true; st.textContent = "Unlocking…";
+    let token = null;
+    try{ token = await unlockToken(pw, LOGIN); }catch(_){}
+    if(!token){ btn.disabled = false; st.textContent = "That password didn't work. Try again."; document.getElementById("gh-pw").select(); return; }
+    ghConnect(LOGIN.owner, LOGIN.repo, token);
+  }
+});
 document.addEventListener("submit", e => {
   const f = e.target.closest('[data-form="gh-setup"]'); if(!f) return;
   e.preventDefault();
@@ -1522,6 +1609,11 @@ document.addEventListener("click", e => {
   const b = e.target.closest("[data-action]"); if(!b) return;
   const a = b.dataset.action;
   if(a === "gh-settings") ghSettingsSheet();
+  else if(a === "gh-pw") ghPwSheet();
+  else if(a === "gh-pw-save") ghPwSave();
+  else if(a === "gh-pw-copy"){ try{ navigator.clipboard.writeText(SH && SH.code || "").then(() => toast("Code copied"), () => toast("Couldn't copy. Select the text and copy it instead.")); }catch(_){ toast("Couldn't copy. Select the text and copy it instead."); } }
+  else if(a === "gh-use-token") ghSetup();
+  else if(a === "gh-use-password" && LOGIN) ghLoginScreen();
   else if(a === "gh-sync"){ setStatus("Syncing…"); (GH.pending.length ? ghPush() : ghFetch(true).then(ch => { if(ch) ghNotify(); setStatus("Synced"); })).catch(() => setStatus("Offline: will retry")); }
   else if(a === "gh-forget"){
     if(!SH || !SH.armed){ SH.armed = true; b.classList.add("armed"); b.textContent = "Tap again to disconnect"; return; }
@@ -1535,8 +1627,9 @@ document.addEventListener("click", e => {
   if(GH_MODE){
     S.got = { goals:false, tasks:false, settings:false, routines:false };
     const c = ghCfg();
+    LOGIN = await fetchLogin();
     if(c && c.token){ GH.cfg = c; ghStart(); }
-    else { S.got = { goals:true, tasks:true, settings:true, routines:true }; S.canWrite = false; render(); ghSetup(); }
+    else { S.got = { goals:true, tasks:true, settings:true, routines:true }; S.canWrite = false; render(); LOGIN ? ghLoginScreen() : ghSetup(); }
     return;
   }
   const slow = setTimeout(() => {
