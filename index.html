@@ -408,7 +408,7 @@ details.roadmap .tasks{margin-top:8px}
 .toggle{display:flex;align-items:center;gap:10px;font-weight:800;font-size:.95rem;margin-bottom:14px}
 .toggle input{width:20px;height:20px;accent-color:var(--pink)}
 .slots{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
-.slot{display:flex;align-items:center;gap:12px;padding:8px;border-radius:16px;background:var(--bg)}
+.slot{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:8px;border-radius:16px;background:var(--bg)}
 .slot .ic{--s:52px}
 .slot .slot-t{flex:1;min-width:0}
 .slot .slot-t b{display:block;font-weight:800}
@@ -1356,7 +1356,8 @@ function openCustomize(){
     </div>
     <div class="slot"><span class="ic empty" style="--c:var(--mint)" aria-hidden="true">${I.note}</span>
       <div class="slot-t"><b>Sounds</b><span>A little chime when you check things off</span></div>
-      <div class="btns">${[["On",true],["Off",false]].map(([n,v]) => `<button type="button" class="dchip" data-action="sound" data-on="${v}" aria-pressed="${(S.settings.sound !== false) === v}">${n}</button>`).join("")}</div></div>
+      <div class="btns">${[["On",true],["Off",false]].map(([n,v]) => `<button type="button" class="dchip" data-action="sound" data-on="${v}" aria-pressed="${(S.settings.sound !== false) === v}">${n}</button>`).join("")}</div>
+      ${S.settings.sound !== false ? `<div class="dims" style="flex-basis:100%"><span class="flabel" style="align-self:center;margin-right:4px">Style</span>${SOUND_STYLES.map(([v,n]) => `<button type="button" class="dchip" data-action="sound-style" data-style="${v}" aria-pressed="${(S.settings.soundStyle || "mix") === v}">${n}</button>`).join("")}<button type="button" class="dchip" data-action="sound-test">▶ Try</button></div>` : ""}</div>
     <div class="slot"><span class="ic empty" style="--c:var(--sky)" aria-hidden="true">${I.image}</span>
       <div class="slot-t"><b>Background motion</b><span>Slow scrolling on PC, slow drift on phone</span></div>
       <div class="btns">${[["On",true],["Off",false]].map(([n,v]) => `<button type="button" class="dchip" data-action="bg-motion" data-on="${v}" aria-pressed="${(S.settings.bgMotion !== false) === v}">${n}</button>`).join("")}</div></div>
@@ -1394,9 +1395,43 @@ function tok(c, t, freq, vol){
   src.connect(bp); bp.connect(g); g.connect(c.destination); src.start(t);
   tone(c, t, (freq || 1900) / 2.2, 0.05, "sine", 0.12);
 }
+/* original synthesized critters: a two-note puppy "yip yip" and a kitty "mrrow" */
+function voice(c, t, type, pts, peak, dur, formants){
+  const o = c.createOscillator(), g = c.createGain(), mix = c.createGain(), lp = c.createBiquadFilter();
+  o.type = type;
+  o.frequency.setValueAtTime(pts[0][1], t);
+  for(const [dt, f] of pts.slice(1)) o.frequency.linearRampToValueAtTime(f, t + dt);
+  const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = 7; lg.gain.value = pts[0][1] * 0.02; lfo.connect(lg); lg.connect(o.frequency);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.03); g.gain.setValueAtTime(peak, t + dur * 0.55); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  lp.type = "lowpass"; lp.frequency.value = 4200;
+  for(const [fs, q, amt] of formants){
+    const bp = c.createBiquadFilter(), bg = c.createGain(); bp.type = "bandpass"; bp.Q.value = q; bg.gain.value = amt;
+    bp.frequency.setValueAtTime(fs[0], t); for(let i = 1; i < fs.length; i++) bp.frequency.linearRampToValueAtTime(fs[i], t + dur * i / (fs.length - 1));
+    o.connect(bp); bp.connect(bg); bg.connect(mix);
+  }
+  mix.connect(lp); lp.connect(g); g.connect(c.destination);
+  o.start(t); lfo.start(t); o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
+}
+function playMeow(c, t){
+  voice(c, t, "sawtooth", [[0, 540], [0.13, 900], [0.3, 760], [0.5, 560]], 0.32, 0.55, [[[900, 1700, 1300, 800], 5, 1], [[2600, 3000, 2400], 7, 0.45]]);
+}
+function playYip(c, t){
+  for(const [dt, hi, lo] of [[0, 900, 460], [0.17, 1050, 520]]){
+    voice(c, t + dt, "triangle", [[0, hi], [0.04, hi * 1.08], [0.13, lo]], 0.42, 0.15, [[[1400, 1100], 2.2, 1.4], [[2800, 2300], 5, 0.5]]);
+    tok(c, t + dt, 1300, 0.18);
+  }
+}
+const SOUND_STYLES = [["mix","Mix"], ["chime","Chime"], ["critters","Yip & mrrow"]];
 function playDone(big){
   const c = audio(); if(!c) return;
   const t = c.currentTime + 0.01;
+  const style = S.settings.soundStyle || "mix";
+  if(!big && style !== "chime"){
+    const pool = style === "critters" ? ["yip", "meow"] : ["chime", "chime", "yip", "meow"];
+    const pick = pool[Math.floor(Math.random() * pool.length)];
+    if(pick === "yip"){ playYip(c, t); return; }
+    if(pick === "meow"){ playMeow(c, t); return; }
+  }
   tok(c, t);
   if(!big){
     tone(c, t, 1046.5, 0.09, "square", 0.05);
@@ -1746,6 +1781,8 @@ document.addEventListener("click", e => {
     case "slot-remove": setIcon(b.dataset.slot, null).then(() => { if(SH && SH.mode === "customize") openCustomize(); }); break;
     case "banner-remove": saveSettings({ ...S.settings, bannerAsset:null }).then(() => { if(SH && SH.mode === "customize") openCustomize(); }); break;
     case "bg-motion": { const on = b.dataset.on === "true"; BG.key = null; saveSettings({ ...S.settings, bgMotion:on }).then(() => { renderBg(); if(SH && SH.mode === "customize") openCustomize(); }); break; }
+    case "sound-style": { const st = b.dataset.style; saveSettings({ ...S.settings, soundStyle:st }).then(() => { playDone(false); if(SH && SH.mode === "customize") openCustomize(); }); break; }
+    case "sound-test": playDone(false); break;
     case "sound": { const on = b.dataset.on === "true"; saveSettings({ ...S.settings, sound:on }).then(() => { if(on) playDone(false); if(SH && SH.mode === "customize") openCustomize(); }); break; }
     case "bg-del": { const i = Number(b.dataset.i), list = bgList().filter((_,k) => k !== i);
       saveSettings({ ...S.settings, bgAsset:null, bgAssets:list }).then(() => { if(SH && SH.mode === "customize") openCustomize(); }); break; }
