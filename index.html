@@ -298,6 +298,41 @@ button.perch:hover{transform:rotate(-3deg) scale(1.06)}
 .add-day{margin-top:auto;border:2px dashed var(--hair);background:none;border-radius:12px;padding:6px;font-size:.85rem;font-weight:800;color:var(--ink-soft)}
 .add-day:hover{border-color:var(--ink-soft);color:var(--ink)}
 
+/* Week / month switch and month grid */
+.cal-h{align-items:center}
+.seg{display:inline-flex;border:2px solid var(--edge);border-radius:12px;overflow:hidden;background:var(--surface);box-shadow:2px 2px 0 var(--shadow)}
+.seg button{border:0;background:none;padding:5px 12px;font-weight:800;font-size:.85rem;color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--pink);color:#3B2343}
+.mnav{display:flex;gap:6px;align-items:center}
+.mnav .icon-btn{width:32px;height:32px;margin:0}
+.month{padding:10px;border-radius:22px}
+.mgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.mhead{text-align:center;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--ink-soft);padding:2px 0}
+.mcell{min-height:112px;border-radius:14px;padding:6px;background:var(--bg);border:2px solid transparent;display:flex;flex-direction:column;gap:4px;cursor:pointer;min-width:0;transition:transform .15s}
+.mcell:hover{border-color:var(--hair)}
+.mcell.off{background:color-mix(in srgb,var(--sun) 9%,var(--bg))}
+.mcell.out{opacity:.45}
+.mcell.mtoday{border-color:var(--pink)}
+.mcell.mtoday .mnum{background:var(--pink);color:#3B2343;border-radius:999px;padding:0 7px}
+.mcell.over{transform:translateY(-2px);border-color:var(--sun)}
+.mnum{align-self:flex-start;font-family:var(--display);font-weight:600;font-size:.95rem}
+.mitems{display:flex;flex-direction:column;gap:3px;min-width:0}
+.mi{display:block;width:100%;text-align:left;font-size:.74rem;font-weight:700;line-height:1.2;padding:2px 6px;border-radius:7px;border:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.mi.ev{background:color-mix(in srgb,var(--sky) 32%,var(--surface))}
+.mi.tk{background:color-mix(in srgb,var(--goal) 22%,var(--surface));border-left:4px solid var(--goal);cursor:pointer}
+.mi.tk.done{text-decoration:line-through;opacity:.6}
+.mmore{font-size:.7rem;font-weight:800;color:var(--ink-soft);padding-left:4px}
+.mdots{display:none;flex-wrap:wrap;gap:3px}
+.mdots i{width:7px;height:7px;border-radius:50%;background:var(--goal,#ccc)}
+.mdots i.ev{background:var(--sky)}
+.mdots i.done{opacity:.4}
+@media (max-width:699px){
+  .mcell{min-height:58px;padding:4px;border-radius:10px}
+  .mitems{display:none}
+  .mdots{display:flex}
+  .mgrid{gap:4px}
+}
+
 /* Goals */
 .goal{overflow:visible;position:relative}
 .ghead{position:relative;aspect-ratio:3/1;border-radius:20px 20px 0 0;border-bottom:2px solid var(--edge);overflow:hidden;
@@ -618,7 +653,7 @@ function render(){
   const gid = viewGoal();
   document.getElementById("layout").hidden = !!gid;
   document.getElementById("detail").hidden = !gid;
-  if(gid) renderDetail(gid); else { renderToday(); renderWeek(); renderGoals(); }
+  if(gid) renderDetail(gid); else { renderToday(); CAL.mode === "month" ? renderMonth() : renderWeek(); renderGoals(); }
   renderFoot();
   if(q){ const n = document.getElementById("quick"); if(n){ n.value = q.v; n.focus(); try{ n.setSelectionRange(q.c, q.c); }catch(_){} } }
 }
@@ -1072,8 +1107,50 @@ function renderWeek(){
       <button class="add-day" data-write data-action="add" data-date="${key}" aria-label="Add a task on ${esc(label(key))}">+ Add</button>
     </div>`;
   }
-  el.innerHTML = secHead("week", "week-h", "This week", S.canWrite ? "Drag tasks between days, or tap one to move it" : "") +
+  el.innerHTML = calHead("This week", S.canWrite ? "Drag tasks between days, or tap one to move it" : "") +
     `<div class="week-scroll"><div class="week">${cols}</div></div>` + perch("week");
+}
+/* week / month switch, remembered per device */
+let CAL = { mode:(() => { try{ return localStorage.getItem("sunpath-cal") || "week"; }catch(_){ return "week"; } })(), off:0 };
+function calHead(title, hint, nav){
+  return `<div class="sec-h cal-h"><h2 id="week-h">${esc(title)}</h2>
+    <div class="seg" role="group" aria-label="Calendar view">
+      <button type="button" data-action="cal-mode" data-mode="week" aria-pressed="${CAL.mode === "week"}">Week</button>
+      <button type="button" data-action="cal-mode" data-mode="month" aria-pressed="${CAL.mode === "month"}">Month</button>
+    </div>${nav || ""}${hint ? `<small>${esc(hint)}</small>` : ""}</div>`;
+}
+function renderMonth(){
+  const el = document.getElementById("week");
+  const now = parse(today()), first = new Date(now.getFullYear(), now.getMonth() + CAL.off, 1);
+  const start = addDays(first, -first.getDay()), last = new Date(first.getFullYear(), first.getMonth() + 1, 0);
+  const end = addDays(last, 6 - last.getDay());
+  const heads = DOW.map(d => `<div class="mhead">${d}</div>`).join("");
+  let cells = "";
+  for(let d = new Date(start); d <= end; d = addDays(d, 1)){
+    const key = ymd(d), evs = eventsOn(key);
+    const ts = onDay(key).filter(t => !t.routineId).sort((a, b) => (a.done - b.done) || byTime(a, b));
+    const items = evs.map(e => `<span class="mi ev" title="${esc(evRange(e))}">${esc(e.title)}</span>`)
+      .concat(ts.map(t => `<button type="button" class="mi tk${t.done ? " done" : ""}" style="--goal:${esc(goalColor(goalById(t.goalId)))}" data-action="edit" data-id="${esc(t.id)}" ${S.canWrite ? `draggable="true" data-drag="${esc(t.id)}"` : ""}>${t.star ? "★ " : ""}${esc(t.title)}</button>`));
+    const shown = items.slice(0, 4).join(""), more = items.length - 4;
+    cells += `<div class="mcell${d.getMonth() !== first.getMonth() ? " out" : ""}${key === today() ? " mtoday" : ""}${OFF_DAYS.has(d.getDay()) ? " off" : ""}" data-drop="${key}" data-action="day-open" data-date="${key}">
+      <span class="mnum">${d.getDate()}</span>
+      <div class="mitems">${shown}${more > 0 ? `<span class="mmore">+${more} more</span>` : ""}</div>
+      <div class="mdots" aria-hidden="true">${evs.map(() => `<i class="ev"></i>`).join("")}${ts.map(t => `<i style="--goal:${esc(goalColor(goalById(t.goalId)))}"${t.done ? ' class="done"' : ""}></i>`).join("")}</div>
+    </div>`;
+  }
+  const title = first.toLocaleDateString(undefined, { month:"long", year:"numeric" });
+  const nav = `<div class="mnav"><button type="button" class="icon-btn" data-action="cal-prev" aria-label="Previous month">${I.chev.replace("<svg", '<svg style="transform:rotate(180deg)"')}</button>${CAL.off ? `<button type="button" class="mini ghosty" data-action="cal-today">Today</button>` : ""}<button type="button" class="icon-btn" data-action="cal-next" aria-label="Next month">${I.chev}</button></div>`;
+  el.innerHTML = calHead(title, "", nav) + `<div class="month sticker"><div class="mgrid">${heads}${cells}</div></div>` + perch("week");
+}
+function openDaySheet(key){
+  SH = { mode:"day", date:key };
+  const evs = eventsOn(key), ts = onDay(key).sort((a, b) => (a.done - b.done) || byTime(a, b));
+  const d = parse(key);
+  showSheet(`<h4 id="sheet-h">${esc(d.toLocaleDateString(undefined, { weekday:"long", month:"long", day:"numeric" }))}</h4>
+    ${evs.length ? `<p class="subhead" style="margin-top:0">Calendar</p><div class="evs" style="margin-bottom:10px">${evs.map(e => `<span class="evchip">${I.cal}<b>${esc(e.allDay || e.date !== key ? "All day" : evRange(e))}</b> ${esc(e.title)}</span>`).join("")}</div>` : ""}
+    ${ts.length ? `<p class="subhead">Tasks</p><ul class="tasks">${ts.map(t => taskRow(t, { mark:true, showTime:true })).join("")}</ul>` : ""}
+    ${!evs.length && !ts.length ? `<p class="muted">Nothing on this day yet.</p>` : ""}
+    <div class="sheet-foot">${key >= today() && key <= ymd(addDays(parse(today()), 6)) ? `<button class="btn" data-action="cal-week-from" data-date="${key}">Show in week view</button>` : "<span></span>"}<span style="display:flex;gap:8px"><button class="btn ghost" data-action="close">Close</button><button class="btn primary" data-write data-action="add" data-date="${key}">${I.plus}Add</button></span></div>`, ".btn");
 }
 
 function renderGoals(){
@@ -1610,6 +1687,12 @@ document.addEventListener("click", e => {
     case "undo-plan": undoPlan(); document.getElementById("toast").hidden = true; break;
     case "clear-time": { const ti = document.getElementById("sh-time"); if(ti) ti.value = ""; break; }
     case "routines": openRoutines(); break;
+    case "cal-mode": CAL.mode = b.dataset.mode; CAL.off = 0; try{ localStorage.setItem("sunpath-cal", CAL.mode); }catch(_){} render(); break;
+    case "cal-prev": CAL.off--; render(); break;
+    case "cal-next": CAL.off++; render(); break;
+    case "cal-today": CAL.off = 0; render(); break;
+    case "day-open": openDaySheet(b.dataset.date); break;
+    case "cal-week-from": closeSheet(); CAL.mode = "week"; try{ localStorage.setItem("sunpath-cal", "week"); }catch(_){} render(); document.getElementById("week").scrollIntoView({ behavior:"smooth", block:"start" }); break;
     case "ics": openImportSheet(); break;
     case "ics-import": if(SH && SH.parsed){ const evs = SH.parsed; closeSheet(); toast("Importing " + evs.length + " events…"); importEvents(evs).then(() => toast("Calendar imported")); } break;
     case "ics-clear": { closeSheet(); const olds = S.events.filter(x => x.src === "ics"); (async () => { for(const o of olds) await write("events/" + o.id, () => S.db.doc("events/" + o.id).delete()); toast("Imported events removed"); })(); break; }
@@ -1702,20 +1785,22 @@ document.addEventListener("focusout", () => { setTimeout(() => { if(S.pending &&
 /* drag and drop between days */
 let dragId = null;
 document.addEventListener("dragstart", e => {
+  const mi = e.target.closest && e.target.closest("[data-drag]");
+  if(mi){ dragId = mi.dataset.drag; try{ e.dataTransfer.setData("text/plain", dragId); e.dataTransfer.effectAllowed = "move"; }catch(_){} return; }
   const li = e.target.closest && e.target.closest(".task[draggable]"); if(!li) return;
   dragId = li.dataset.id; li.classList.add("dragging");
   try{ e.dataTransfer.setData("text/plain", dragId); e.dataTransfer.effectAllowed = "move"; }catch(_){}
 });
 document.addEventListener("dragend", e => {
   const li = e.target.closest && e.target.closest(".task"); li && li.classList.remove("dragging");
-  document.querySelectorAll(".day.over,.task.swap").forEach(d => d.classList.remove("over", "swap")); dragId = null;
+  document.querySelectorAll(".day.over,.mcell.over,.task.swap").forEach(d => d.classList.remove("over", "swap")); dragId = null;
 });
 document.addEventListener("dragover", e => {
   const row = e.target.closest && e.target.closest(".tl-list .task");
   if(row && dragId && row.dataset.id !== dragId){ e.preventDefault(); document.querySelectorAll(".task.swap").forEach(x => x !== row && x.classList.remove("swap")); row.classList.add("swap"); return; }
   const day = e.target.closest && e.target.closest("[data-drop]"); if(!day || !dragId) return;
   e.preventDefault();
-  document.querySelectorAll(".day.over").forEach(d => d !== day && d.classList.remove("over"));
+  document.querySelectorAll(".day.over,.mcell.over").forEach(d => d !== day && d.classList.remove("over"));
   day.classList.add("over");
 });
 document.addEventListener("drop", e => {
