@@ -68,7 +68,7 @@ img{max-width:100%}
 .track img{display:block;width:100%;height:auto;margin-bottom:6px}
 @keyframes wallUp{from{transform:translateY(0)}to{transform:translateY(-50%)}}
 @keyframes wallDown{from{transform:translateY(-50%)}to{transform:translateY(0)}}
-@media (prefers-reduced-motion: reduce){.track{animation:none}}
+.still-bg .track{animation:none}
 .bgl i.pan{height:125%;background-position:center top;animation:pan 27s linear forwards}
 @keyframes pan{from{transform:translateY(0)}to{transform:translateY(-20%)}}
 .thumbs{display:flex;gap:8px;flex-wrap:wrap;flex-basis:100%}
@@ -607,7 +607,8 @@ function render(){
 const bgList = () => Array.isArray(S.settings.bgAssets) ? S.settings.bgAssets.filter(Boolean) : (S.settings.bgAsset ? [S.settings.bgAsset] : []);
 const BG = { key:null, list:[], idx:0, front:1, timer:null };
 const HOLD = 24000;
-const reduced = () => window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+/* background motion follows the planner's own setting (on unless turned off), not the system one */
+const reduced = () => S.settings.bgMotion === false;
 function bgShow(id){
   const layers = [document.getElementById("bg0"), document.getElementById("bg1")];
   const back = layers[1 - BG.front], front = layers[BG.front];
@@ -626,6 +627,7 @@ function renderBg(){
   const el = document.getElementById("bgimg"), list = bgList();
   el.classList.toggle("on", list.length > 0);
   document.body.classList.toggle("has-bg", list.length > 0);
+  document.body.classList.toggle("still-bg", reduced());
   el.style.setProperty("--dim", String(S.settings.bgDim ?? 0.45));
   const wall = WIDE.matches && list.length > 1, cols = wall ? wallCols() : 0;
   const key = list.join(",") + "|" + cols;
@@ -1071,6 +1073,9 @@ function openCustomize(){
     <div class="slot"><span class="ic empty" style="--c:var(--mint)" aria-hidden="true">${I.note}</span>
       <div class="slot-t"><b>Sounds</b><span>A little chime when you check things off</span></div>
       <div class="btns">${[["On",true],["Off",false]].map(([n,v]) => `<button type="button" class="dchip" data-action="sound" data-on="${v}" aria-pressed="${(S.settings.sound !== false) === v}">${n}</button>`).join("")}</div></div>
+    <div class="slot"><span class="ic empty" style="--c:var(--sky)" aria-hidden="true">${I.image}</span>
+      <div class="slot-t"><b>Background motion</b><span>Slow scrolling on PC, slow drift on phone</span></div>
+      <div class="btns">${[["On",true],["Off",false]].map(([n,v]) => `<button type="button" class="dchip" data-action="bg-motion" data-on="${v}" aria-pressed="${(S.settings.bgMotion !== false) === v}">${n}</button>`).join("")}</div></div>
     <div class="sheet-foot"><span></span><button class="btn primary" data-action="close">Done</button></div>`, ".btn");
 }
 
@@ -1443,6 +1448,7 @@ document.addEventListener("click", e => {
     case "slot": pickFile({ kind:"slot", key: b.dataset.slot }); break;
     case "slot-remove": setIcon(b.dataset.slot, null).then(() => { if(SH && SH.mode === "customize") openCustomize(); }); break;
     case "banner-remove": saveSettings({ ...S.settings, bannerAsset:null }).then(() => { if(SH && SH.mode === "customize") openCustomize(); }); break;
+    case "bg-motion": { const on = b.dataset.on === "true"; BG.key = null; saveSettings({ ...S.settings, bgMotion:on }).then(() => { renderBg(); if(SH && SH.mode === "customize") openCustomize(); }); break; }
     case "sound": { const on = b.dataset.on === "true"; saveSettings({ ...S.settings, sound:on }).then(() => { if(on) playDone(false); if(SH && SH.mode === "customize") openCustomize(); }); break; }
     case "bg-del": { const i = Number(b.dataset.i), list = bgList().filter((_,k) => k !== i);
       saveSettings({ ...S.settings, bgAsset:null, bgAssets:list }).then(() => { if(SH && SH.mode === "customize") openCustomize(); }); break; }
