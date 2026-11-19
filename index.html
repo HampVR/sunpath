@@ -408,6 +408,8 @@ details.roadmap .tasks{margin-top:8px}
 .toggle{display:flex;align-items:center;gap:10px;font-weight:800;font-size:.95rem;margin-bottom:14px}
 .toggle input{width:20px;height:20px;accent-color:var(--pink)}
 .slots{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.clip{display:inline-flex;gap:2px}
+.clip-x{padding:5px 8px}
 .slot{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding:8px;border-radius:16px;background:var(--bg)}
 .slot .ic{--s:52px}
 .slot .slot-t{flex:1;min-width:0}
@@ -1302,6 +1304,29 @@ function openGoalSheet(id){
       <span style="display:flex;gap:8px"><button class="btn ghost" data-action="close">Cancel</button><button class="btn primary" data-action="goal-save">Save</button></span>
     </div>`, "#g-title");
 }
+function openClipSheet(){
+  SH = { mode:"clip", back:true };
+  showSheet(`<h4 id="sheet-h">Add a sound</h4>
+    <p class="muted" style="margin-bottom:12px">A short clip, ideally under 2 seconds: MP3, M4A, OGG or WAV, up to 2 MB. It joins the random mix when you check things off.</p>
+    <div class="drop"><label class="flabel" for="clip-input">Sound file</label><input type="file" id="clip-input" accept="audio/*"><p class="up-status" id="clip-status" aria-live="polite"></p></div>
+    <div class="sheet-foot"><span></span><button class="btn" data-action="customize">Back</button></div>`, "#clip-input");
+}
+document.addEventListener("change", async e => {
+  if(!e.target || e.target.id !== "clip-input") return;
+  const f = e.target.files && e.target.files[0]; if(!f) return;
+  const st = document.getElementById("clip-status");
+  const ext = (f.name.split(".").pop() || "").toLowerCase();
+  const type = { m4a:"audio/mp4", mp4:"audio/mp4", aac:"audio/mp4", mp3:"audio/mpeg", ogg:"audio/ogg", wav:"audio/wav" }[ext] || (EXT[f.type] ? f.type : null);
+  if(!type){ st.textContent = "Use an MP3, M4A, OGG or WAV file."; return; }
+  if(f.size > 2 * 1024 * 1024){ st.textContent = "That clip is over 2 MB. Try a shorter one."; return; }
+  st.textContent = "Uploading…";
+  try{
+    const r = await S.assets.upload(f, { type });
+    const name = f.name.replace(/\.[^.]+$/, "").slice(0, 30);
+    await saveSettings({ ...S.settings, sounds: [...mySounds(), { id:r.id, name }] });
+    playClip(r.id); toast("Sound added"); openCustomize();
+  }catch(_){ st.textContent = "Upload failed. Try again."; }
+});
 function openRoutines(){
   SH = { mode:"routines" };
   const rs = S.routines.slice().sort(byTime);
@@ -1357,7 +1382,8 @@ function openCustomize(){
     <div class="slot"><span class="ic empty" style="--c:var(--mint)" aria-hidden="true">${I.note}</span>
       <div class="slot-t"><b>Sounds</b><span>A little chime when you check things off</span></div>
       <div class="btns">${[["On",true],["Off",false]].map(([n,v]) => `<button type="button" class="dchip" data-action="sound" data-on="${v}" aria-pressed="${(S.settings.sound !== false) === v}">${n}</button>`).join("")}</div>
-      ${S.settings.sound !== false ? `<div class="dims" style="flex-basis:100%"><span class="flabel" style="align-self:center;margin-right:4px">Style</span>${SOUND_STYLES.map(([v,n]) => `<button type="button" class="dchip" data-action="sound-style" data-style="${v}" aria-pressed="${(S.settings.soundStyle || "mix") === v}">${n}</button>`).join("")}<button type="button" class="dchip" data-action="sound-test">▶ Try</button></div>` : ""}</div>
+      ${S.settings.sound !== false ? `<div class="dims" style="flex-basis:100%"><span class="flabel" style="align-self:center;margin-right:4px">Style</span>${SOUND_STYLES.filter(([v]) => v !== "mine" || mySounds().length).map(([v,n]) => `<button type="button" class="dchip" data-action="sound-style" data-style="${v}" aria-pressed="${(S.settings.soundStyle || "mix") === v}">${n}</button>`).join("")}<button type="button" class="dchip" data-action="sound-test">▶ Try</button></div>
+      <div class="dims" style="flex-basis:100%"><span class="flabel" style="align-self:center;margin-right:4px">My sounds</span>${mySounds().map(x => `<span class="clip"><button type="button" class="dchip" data-action="clip-play" data-id="${esc(x.id)}">▶ ${esc(x.name || "Sound")}</button><button type="button" class="dchip clip-x" data-action="clip-del" data-id="${esc(x.id)}" aria-label="Remove ${esc(x.name || "sound")}">✕</button></span>`).join("")}${GH_MODE ? `<button type="button" class="dchip" data-action="clip-add">+ Add a sound</button>` : `<span class="muted" style="font-size:.8rem">Adding sounds works on your GitHub site.</span>`}</div>` : ""}</div>
     <div class="slot"><span class="ic empty" style="--c:var(--sky)" aria-hidden="true">${I.image}</span>
       <div class="slot-t"><b>Background motion</b><span>Slow scrolling on PC, slow drift on phone</span></div>
       <div class="btns">${[["On",true],["Off",false]].map(([n,v]) => `<button type="button" class="dchip" data-action="bg-motion" data-on="${v}" aria-pressed="${(S.settings.bgMotion !== false) === v}">${n}</button>`).join("")}</div></div>
@@ -1423,14 +1449,36 @@ function playYip(c, t){
     tok(c, t + dt, 1300, 0.18);
   }
 }
-const SOUND_STYLES = [["mix","Mix"], ["chime","Chime"], ["critters","Yip & mrrow"]];
+/* your own sound clips (stored with your private data), played whole when you check something off */
+const mySounds = () => Array.isArray(S.settings.sounds) ? S.settings.sounds.filter(x => x && x.id) : [];
+const SND = new Map(), SND_LOAD = new Map();
+function loadClip(id){
+  if(SND.has(id)) return Promise.resolve(SND.get(id));
+  if(SND_LOAD.has(id)) return SND_LOAD.get(id);
+  const p = (async () => {
+    const c = audio(); if(!c) throw new Error("no audio");
+    const url = GH_MODE ? await ghImg(id) : "/_blob/" + encodeURIComponent(id);
+    const buf = await (await fetch(url)).arrayBuffer();
+    const ab = await new Promise((res, rej) => c.decodeAudioData(buf, res, rej));
+    SND.set(id, ab); SND_LOAD.delete(id); return ab;
+  })();
+  p.catch(() => SND_LOAD.delete(id));
+  SND_LOAD.set(id, p); return p;
+}
+function playClip(id){
+  const c = audio(); if(!c) return;
+  loadClip(id).then(ab => { const src = c.createBufferSource(), g = c.createGain(); g.gain.value = 0.9; src.buffer = ab; src.connect(g); g.connect(c.destination); src.start(); }, () => {});
+}
+const SOUND_STYLES = [["mix","Mix"], ["chime","Chime"], ["critters","Yip & mrrow"], ["mine","My sounds"]];
 function playDone(big){
   const c = audio(); if(!c) return;
   const t = c.currentTime + 0.01;
   const style = S.settings.soundStyle || "mix";
   if(!big && style !== "chime"){
-    const pool = style === "critters" ? ["yip", "meow"] : ["chime", "chime", "yip", "meow"];
+    const mine = mySounds().map(x => "clip:" + x.id);
+    const pool = style === "mine" && mine.length ? mine : style === "critters" ? ["yip", "meow"] : ["chime", "chime", "yip", "meow", ...mine];
     const pick = pool[Math.floor(Math.random() * pool.length)];
+    if(pick.startsWith("clip:")){ playClip(pick.slice(5)); return; }
     if(pick === "yip"){ playYip(c, t); return; }
     if(pick === "meow"){ playMeow(c, t); return; }
   }
@@ -1785,6 +1833,9 @@ document.addEventListener("click", e => {
     case "bg-motion": { const on = b.dataset.on === "true"; BG.key = null; saveSettings({ ...S.settings, bgMotion:on }).then(() => { renderBg(); if(SH && SH.mode === "customize") openCustomize(); }); break; }
     case "sound-style": { const st = b.dataset.style; saveSettings({ ...S.settings, soundStyle:st }).then(() => { playDone(false); if(SH && SH.mode === "customize") openCustomize(); }); break; }
     case "sound-test": playDone(false); break;
+    case "clip-play": playClip(id); break;
+    case "clip-del": saveSettings({ ...S.settings, sounds: mySounds().filter(x => x.id !== id) }).then(() => { if(SH && SH.mode === "customize") openCustomize(); }); break;
+    case "clip-add": openClipSheet(); break;
     case "sound": { const on = b.dataset.on === "true"; saveSettings({ ...S.settings, sound:on }).then(() => { if(on) playDone(false); if(SH && SH.mode === "customize") openCustomize(); }); break; }
     case "bg-del": { const i = Number(b.dataset.i), list = bgList().filter((_,k) => k !== i);
       saveSettings({ ...S.settings, bgAsset:null, bgAssets:list }).then(() => { if(SH && SH.mode === "customize") openCustomize(); }); break; }
@@ -1987,7 +2038,7 @@ const ghDb = {
   doc(path){ const [c, id] = path.split("/"); return { id, path, set: d => ghOp("set", c, id, d), update: d => ghOp("update", c, id, d), delete: () => ghOp("delete", c, id) }; },
   collection(c){ return { doc(id){ return ghDb.doc(c + "/" + (id || rid())); } }; }
 };
-const EXT = { "image/png":"png", "image/jpeg":"jpg", "image/gif":"gif", "image/webp":"webp", "image/svg+xml":"svg" };
+const EXT = { "image/png":"png", "image/jpeg":"jpg", "image/gif":"gif", "image/webp":"webp", "image/svg+xml":"svg", "audio/mp4":"m4a", "audio/mpeg":"mp3", "audio/ogg":"ogg", "audio/wav":"wav" };
 const ghAssets = {
   async upload(b, opt = {}){
     const type = (opt && opt.type) || b.type, ext = EXT[type];
