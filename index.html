@@ -57,10 +57,13 @@ img{max-width:100%}
 .bgl{position:absolute;inset:0;opacity:0;transition:opacity 3s ease;overflow:hidden}
 .bgl i{position:absolute;left:0;right:0;top:0;height:100%;background-size:cover;background-position:center}
 .bgl b{display:none}
-@media (min-width:1100px){
-  .bgl b{display:block;position:absolute;inset:-60px;background-size:cover;background-position:center;filter:blur(36px) saturate(1.15);transform:scale(1.08)}
-  .bgl i,.bgl i.pan{height:100%;animation:none;transform:none;background-size:contain;background-position:right center;background-repeat:no-repeat}
-}
+#wall{position:absolute;inset:0;display:grid;gap:6px;background:var(--bg)}
+#wall[hidden]{display:none}
+.strip{position:relative;overflow:hidden}
+.has-bg .sec-h h2{background:var(--surface);border:2px solid var(--edge);border-radius:14px;padding:2px 14px;box-shadow:3px 3px 0 var(--shadow)}
+.has-bg .sec-h small,.has-bg .foot{background:color-mix(in srgb,var(--surface) 88%,transparent);border-radius:10px;padding:3px 10px}
+.has-bg .foot{display:table;margin-left:auto;margin-right:auto}
+.strip i{position:absolute;inset:0;background-size:cover;background-position:center top;opacity:0;transition:opacity 2.5s ease}
 .bgl i.pan{height:125%;background-position:center top;animation:pan 27s linear forwards}
 @keyframes pan{from{transform:translateY(0)}to{transform:translateY(-20%)}}
 .thumbs{display:flex;gap:8px;flex-wrap:wrap;flex-basis:100%}
@@ -382,7 +385,7 @@ details.roadmap .tasks{margin-top:8px}
 </style>
 </head>
 <body>
-<div id="bgimg" aria-hidden="true"><div class="bgl" id="bg0"><b></b><i></i></div><div class="bgl" id="bg1"><b></b><i></i></div></div>
+<div id="bgimg" aria-hidden="true"><div id="wall" hidden></div><div class="bgl" id="bg0"><b></b><i></i></div><div class="bgl" id="bg1"><b></b><i></i></div></div>
 <div class="side" id="sideL" aria-hidden="true"></div><div class="side right" id="sideR" aria-hidden="true"></div>
 <main class="wrap">
   <div id="note"></div>
@@ -619,14 +622,50 @@ function renderBg(){
   el.classList.toggle("on", list.length > 0);
   document.body.classList.toggle("has-bg", list.length > 0);
   el.style.setProperty("--dim", String(S.settings.bgDim ?? 0.45));
-  const key = list.join(",");
+  const wall = WIDE.matches && list.length > 1, cols = wall ? wallCols() : 0;
+  const key = list.join(",") + "|" + cols;
   if(key === BG.key) return;
   BG.key = key; BG.list = list; BG.idx = Math.floor(Math.random() * list.length);
   clearInterval(BG.timer); BG.timer = null;
+  const wallEl = document.getElementById("wall");
+  wallEl.hidden = !wall;
+  document.querySelectorAll(".bgl").forEach(l => l.style.visibility = wall ? "hidden" : "");
   if(!list.length) return;
+  if(wall){ buildWall(list, cols); return; }
   bgShow(list[BG.idx]);
   if(list.length > 1) BG.timer = setInterval(() => { BG.idx = (BG.idx + 1) % BG.list.length; bgShow(BG.list[BG.idx]); }, HOLD);
 }
+
+/* wide screens: a poster wall of tall strips, one strip fading to another piece every few seconds */
+const WIDE = window.matchMedia("(min-width:1100px)");
+const wallCols = () => Math.max(2, Math.min(6, Math.round(window.innerWidth / (window.innerHeight * 0.68))));
+function buildWall(list, n){
+  const wall = document.getElementById("wall"), order = list.slice();
+  for(let i = order.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  wall.style.gridTemplateColumns = `repeat(${n}, minmax(0, 1fr))`;
+  wall.innerHTML = Array.from({ length:n }, () => `<div class="strip"><i></i><i></i></div>`).join("");
+  BG.wall = [...wall.children].map(el => ({ el, front:0, id:null }));
+  BG.wall.forEach((_, i) => wallSet(i, order[i % order.length], true));
+  BG.timer = setInterval(() => {
+    const i = Math.floor(Math.random() * BG.wall.length), shown = new Set(BG.wall.map(w => w.id));
+    let pool = BG.list.filter(x => !shown.has(x));
+    if(!pool.length) pool = BG.list.filter(x => x !== BG.wall[i].id && x !== (BG.wall[i-1] || {}).id && x !== (BG.wall[i+1] || {}).id);
+    if(pool.length) wallSet(i, pool[Math.floor(Math.random() * pool.length)]);
+  }, 7000);
+}
+function wallSet(i, id, instant){
+  const w = BG.wall[i], [a, b] = w.el.children, back = w.front ? a : b, front = w.front ? b : a;
+  w.id = id;
+  const put = () => {
+    if(instant) back.style.transition = "none";
+    back.style.backgroundImage = `url("${blob(id)}")`;
+    back.style.opacity = "1"; front.style.opacity = "0"; w.front = 1 - w.front;
+    if(instant) requestAnimationFrame(() => requestAnimationFrame(() => { back.style.transition = ""; }));
+  };
+  if(GH_MODE && !IMG.has(id)) ghImg(id).then(put, () => {}); else put();
+}
+let wallResize = null;
+window.addEventListener("resize", () => { clearTimeout(wallResize); wallResize = setTimeout(renderBg, 250); });
 
 function secHead(key, id, title, small){
   return `<div class="sec-h"><h2 id="${id}">${esc(title)}</h2>${small ? `<small>${esc(small)}</small>` : ""}</div>`;
