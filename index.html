@@ -189,6 +189,10 @@ button.perch:hover{transform:rotate(-3deg) scale(1.06)}
 .tl-h .subhead{display:inline-flex;align-items:center;gap:6px}
 .tl-h .subhead svg{width:15px;height:15px}
 .mini.ghosty{background:var(--surface)}
+.tl-btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.tchip small{display:block;font-size:.68rem;font-weight:700;opacity:.75}
+.task.swap{outline:2px dashed var(--pink);outline-offset:2px}
+.toast-act{margin-left:6px}
 .tl-list{position:relative;padding-left:2px}
 .tl-list::before{content:"";position:absolute;left:96px;top:6px;bottom:6px;width:3px;border-radius:3px;background:var(--hair)}
 .task.tl{position:relative;background:transparent;padding-left:0}
@@ -536,13 +540,14 @@ function slot(src, attrs, labelText, opts = {}){
   return `<span class="${cls} empty"${style} aria-hidden="true">${I.paw}</span>`;
 }
 
-function toast(msg, withIcon){
+function toast(msg, withIcon, action){
   const t = document.getElementById("toast");
   const ic = withIcon && icons().done;
   t.className = "toast" + (ic ? " pop" : " plain");
-  t.innerHTML = (ic ? `<span class="ic"><img src="${esc(blob(ic))}" alt=""></span>` : "") + `<span>${esc(msg)}</span>`;
+  t.innerHTML = (ic ? `<span class="ic"><img src="${esc(blob(ic))}" alt=""></span>` : "") + `<span>${esc(msg)}</span>` +
+    (action ? `<button class="mini toast-act" data-action="${esc(action.act)}">${esc(action.label)}</button>` : "");
   t.hidden = false;
-  clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 2600);
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, action ? 7000 : 2600);
 }
 function errText(e){
   const c = e && e.code;
@@ -790,7 +795,7 @@ function marker(g){
 }
 function taskRow(t, o = {}){
   const g = goalById(t.goalId);
-  const timeChip = o.time && t.time ? `<button class="tchip" data-action="edit" data-id="${esc(t.id)}">${esc(fmtTime(t.time))}</button>` : "";
+  const timeChip = o.time && t.time ? `<button class="tchip" data-action="edit" data-id="${esc(t.id)}">${esc(fmtTime(t.time))}${t.dur ? `<small>${esc(fmtDur(t.dur))}</small>` : ""}</button>` : "";
   const late = t.date && t.date < today() && !t.done;
   return `<li class="task${t.done ? " done" : ""}" style="--goal:${esc(goalColor(g))}" data-id="${esc(t.id)}" ${S.canWrite ? 'draggable="true"' : ""}>
     ${timeChip}
@@ -806,6 +811,47 @@ function goalChip(g){
   if(!g) return "";
   return `<span class="chip${g.icon ? "" : " noicon"}" style="--goal:${esc(goalColor(g))}">${g.icon ? slot(g.icon, "", g.title, {static:true}) : ""}${esc(g.title)}</span>`;
 }
+
+/* "Plan my day": keeps anything you timed yourself, then fits today's untimed tasks into the gaps,
+   biggest first, with a short break after each. Tasks it places are marked planned:true so a re-plan can move them. */
+const toMin = hm => { const [h, m] = hm.split(":").map(Number); return h * 60 + m; };
+const fromMin = m => pad(Math.floor(m / 60)) + ":" + pad(m % 60);
+function planDay(){
+  const now = new Date(), isWork = !OFF_DAYS.has(now.getDay());
+  const list = onDay(today()).filter(t => !t.done);
+  const nowM = Math.ceil((now.getHours() * 60 + now.getMinutes()) / 15) * 15;
+  const start = Math.max(nowM, isWork ? 16 * 60 + 30 : 9 * 60), end = isWork ? 20 * 60 : 22 * 60;
+  const busy = list.filter(t => t.time && !t.planned).map(t => [toMin(t.time), toMin(t.time) + (t.dur || (t.routineId ? 15 : 30))]);
+  const one = list.find(t => t.star) || list.find(t => t.goalId) || list.find(t => !t.routineId);
+  const todo = list.filter(t => !t.routineId && (!t.time || t.planned))
+    .sort((a, b) => (b === one) - (a === one) || (!!b.goalId - !!a.goalId) || byOrder(a, b));
+  if(!todo.length){ toast("Nothing to plan: every task today already has a time."); return; }
+  if(start >= end){ toast("It's late, so there's no time left to plan today."); return; }
+  const changes = [], left = [];
+  let cur = start;
+  for(const t of todo){
+    const dur = t.dur && t.planned ? t.dur : (t.goalId ? (isWork ? 45 : 90) : 30);
+    let st = cur;
+    for(let guard = 0; guard < 50; guard++){
+      const clash = busy.find(([a, b]) => st < b && st + dur > a);
+      if(!clash) break;
+      st = Math.ceil(clash[1] / 15) * 15;
+    }
+    if(st + dur > end){ left.push(t); continue; }
+    busy.push([st, st + dur]);
+    changes.push({ id:t.id, prev:{ time:t.time || null, dur:t.dur || null, planned:!!t.planned }, next:{ time:fromMin(st), dur, planned:true } });
+    cur = st + dur + 15;
+  }
+  S.lastPlan = changes;
+  changes.forEach(c => updTask(c.id, c.next));
+  playTick();
+  toast(`Planned ${changes.length} task${changes.length === 1 ? "" : "s"}` + (left.length ? `; ${left.length} didn't fit` : "") + ". Drag or tap to adjust.", false, { act:"undo-plan", label:"Undo" });
+}
+function undoPlan(){
+  (S.lastPlan || []).forEach(c => updTask(c.id, c.prev));
+  S.lastPlan = null; toast("Plan undone");
+}
+const fmtDur = m => m >= 60 ? (Math.floor(m / 60) + "h" + (m % 60 ? " " + (m % 60) + "m" : "")) : m + "m";
 
 function renderToday(){
   const el = document.getElementById("today");
@@ -857,7 +903,7 @@ function renderToday(){
     }
     if(!placed) rows += `<li class="now" aria-label="Now"><span>Now · ${esc(fmtTime(now))}</span></li>`;
     tl = `<div class="card sticker timeline">
-      <div class="tl-h"><span class="subhead" style="margin:0">${I.clock} Timeline</span><button class="mini ghosty" data-write data-action="add" data-date="${today()}" data-time="1">+ Add at a time</button></div>
+      <div class="tl-h"><span class="subhead" style="margin:0">${I.clock} Timeline</span><span class="tl-btns"><button class="mini" data-write data-action="plan-day">✦ Plan my day</button><button class="mini ghosty" data-write data-action="add" data-date="${today()}" data-time="1">+ At a time</button></span></div>
       <ul class="tasks tl-list">${rows}</ul></div>`;
   }
   let extra = "";
@@ -976,7 +1022,7 @@ function openTaskSheet(id){
     <div class="field"><label for="sh-title">Task</label><textarea id="sh-title" rows="2">${esc(t.title)}</textarea></div>
     <div class="field"><span class="flabel">Move to (tap to move and close)</span>${dateChips(t.date || null, "sheet-move")}</div>
     <div class="field"><label for="sh-date">Or pick a date</label><input type="date" id="sh-date" value="${esc(t.date || "")}"></div>
-    <div class="field"><label for="sh-time">Time (optional, puts it on the timeline)</label><div style="display:flex;gap:8px"><input type="time" id="sh-time" value="${esc(t.time || "")}"><button type="button" class="btn ghost" data-action="clear-time">Clear</button></div></div>
+    <div class="field"><label for="sh-time">Time (optional, puts it on the timeline)</label><div style="display:flex;gap:8px"><input type="time" id="sh-time" value="${esc(t.time || "")}"><button type="button" class="btn ghost" data-action="nudge" data-d="-15">−15</button><button type="button" class="btn ghost" data-action="nudge" data-d="15">+15</button><button type="button" class="btn ghost" data-action="clear-time">Clear</button></div></div>
     ${t.routineId ? `<p class="muted" style="margin-bottom:14px">${I.repeat} Part of a daily routine. Changes here only affect this day. <button type="button" class="mini" data-action="routine-edit" data-id="${esc(t.routineId)}">Edit the routine</button></p>`
       : `<div class="field"><label for="sh-goal">Goal</label>${goalSelect(t.goalId)}</div>
     <label class="toggle"><input type="checkbox" id="sh-star" ${t.star ? "checked" : ""}> Make it the one thing for its day</label>`}
@@ -1159,7 +1205,7 @@ async function saveTaskSheet(dateOverride){
   const star = ssel ? ssel.checked : !!t.star;
   const time = document.getElementById("sh-time").value || null;
   const patch = {};
-  if(time !== (t.time || null)) patch.time = time;
+  if(time !== (t.time || null)){ patch.time = time; patch.planned = false; }
   if(title !== t.title) patch.title = title;
   if(goalId !== (t.goalId || null)) patch.goalId = goalId;
   if((date || null) !== (t.date || null)){ patch.date = date || null; patch.order = Date.now(); }
@@ -1420,6 +1466,9 @@ document.addEventListener("click", e => {
       if(!SH.armed){ SH.armed = true; b.classList.add("armed"); b.textContent = "Tap again to delete"; break; }
       { const tid = SH.id; closeSheet(); removeTask(tid); toast("Task deleted"); }
       break; }
+    case "nudge": { const ti = document.getElementById("sh-time"); if(ti){ const base = ti.value || nowHM(); let m = toMin(base) + Number(b.dataset.d); m = Math.max(0, Math.min(23 * 60 + 45, m)); ti.value = fromMin(m); } break; }
+    case "plan-day": planDay(); break;
+    case "undo-plan": undoPlan(); document.getElementById("toast").hidden = true; break;
     case "clear-time": { const ti = document.getElementById("sh-time"); if(ti) ti.value = ""; break; }
     case "routines": openRoutines(); break;
     case "routine-edit": openRoutine(id || null); break;
@@ -1517,15 +1566,28 @@ document.addEventListener("dragstart", e => {
 });
 document.addEventListener("dragend", e => {
   const li = e.target.closest && e.target.closest(".task"); li && li.classList.remove("dragging");
-  document.querySelectorAll(".day.over").forEach(d => d.classList.remove("over")); dragId = null;
+  document.querySelectorAll(".day.over,.task.swap").forEach(d => d.classList.remove("over", "swap")); dragId = null;
 });
 document.addEventListener("dragover", e => {
+  const row = e.target.closest && e.target.closest(".tl-list .task");
+  if(row && dragId && row.dataset.id !== dragId){ e.preventDefault(); document.querySelectorAll(".task.swap").forEach(x => x !== row && x.classList.remove("swap")); row.classList.add("swap"); return; }
   const day = e.target.closest && e.target.closest("[data-drop]"); if(!day || !dragId) return;
   e.preventDefault();
   document.querySelectorAll(".day.over").forEach(d => d !== day && d.classList.remove("over"));
   day.classList.add("over");
 });
 document.addEventListener("drop", e => {
+  const row = e.target.closest && e.target.closest(".tl-list .task");
+  if(row && dragId && row.dataset.id !== dragId){
+    e.preventDefault();
+    const a = findTask(dragId), b = findTask(row.dataset.id); dragId = null;
+    document.querySelectorAll(".task.swap").forEach(x => x.classList.remove("swap"));
+    if(a && b && a.time && b.time){
+      updTask(a.id, { time:b.time, planned:false }); updTask(b.id, { time:a.time, planned:false });
+      toast("Swapped times");
+    }
+    return;
+  }
   const day = e.target.closest && e.target.closest("[data-drop]"); if(!day || !dragId) return;
   e.preventDefault();
   const id = dragId; dragId = null; day.classList.remove("over");
