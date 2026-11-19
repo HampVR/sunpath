@@ -191,6 +191,13 @@ button.perch:hover{transform:rotate(-3deg) scale(1.06)}
 .mini.ghosty{background:var(--surface)}
 .task.ev{background:color-mix(in srgb,var(--sky) 16%,var(--surface))}
 .task.ev .ttitle{cursor:default;font-weight:700}
+.evcheck{background:var(--sky) !important;color:#3B2343}
+.evcheck svg{width:14px;height:14px;opacity:1 !important}
+.task.ev.done .ttitle{text-decoration:line-through;text-decoration-thickness:2px;color:var(--ink-soft)}
+.task.ev.done .evcheck{background:var(--mint) !important}
+button.evchip{text-align:left;cursor:pointer;color:var(--ink);font:inherit;font-size:.8rem;font-weight:700}
+.evchip.done{opacity:.6;text-decoration:line-through}
+.mi.ev.done{text-decoration:line-through;opacity:.6}
 .evdot{flex:none;width:26px;height:26px;border-radius:9px;display:grid;place-items:center;background:var(--sky);color:#3B2343;border:2px solid var(--edge);position:relative;z-index:1}
 .evdot svg{width:14px;height:14px}
 .evloc{display:block;font-size:.78rem;font-weight:600;color:var(--ink-soft)}
@@ -867,6 +874,17 @@ const eventsOn = date => S.events.filter(e => e.date <= date && (e.endDate || e.
   .sort((a, b) => (a.allDay ? "" : a.time || "") < (b.allDay ? "" : b.time || "") ? -1 : 1);
 const timedOn = date => eventsOn(date).filter(e => !e.allDay && e.time && e.date === date);
 const allDayOn = date => eventsOn(date).filter(e => e.allDay || e.date !== date);
+function evChip(e, key, range){
+  const when = e.allDay || e.date !== key ? "All day" : (range ? evRange(e) : fmtTime(e.time));
+  return `<button type="button" class="evchip${e.done ? " done" : ""}" data-write data-action="ev-toggle" data-id="${esc(e.id)}" title="${esc((e.done ? "Done. Tap to undo" : "Tap to check off") + (e.location ? " · " + e.location : ""))}">${e.done ? I.check : I.cal}<b>${esc(when)}</b> ${esc(e.title)}</button>`;
+}
+function toggleEvent(id){
+  const e = S.events.find(x => x.id === id); if(!e) return;
+  const done = !e.done;
+  if(done){ playDone(false); toast(CHEERS[Math.floor(Math.random() * CHEERS.length)], true); }
+  write("events/" + id, () => S.db.doc("events/" + id).update({ done, doneAt: done ? Date.now() : null }));
+  if(SH && SH.mode === "day") setTimeout(() => openDaySheet(SH.date), 50);
+}
 function evRange(e){ return e.time ? fmtTime(e.time) + (e.end ? "–" + fmtTime(e.end) : "") : "All day"; }
 /* a small .ics reader: unfolds lines, reads VEVENTs (skipping alarms), handles UTC, local-timezone and
    all-day dates, and expands simple repeats (daily/weekly/monthly/yearly, interval, until, count, weekdays, exdates) */
@@ -972,7 +990,11 @@ document.addEventListener("change", async e => {
 async function importEvents(evs){
   const keep = new Set(evs.map(evId));
   for(const old of S.events.filter(x => x.src === "ics" && !keep.has(x.id))) await write("events/" + old.id, () => S.db.doc("events/" + old.id).delete());
-  for(const ev of evs){ const id = evId(ev); await write("events/" + id, () => S.db.doc("events/" + id).set(ev)); }
+  for(const ev of evs){
+    const id = evId(ev), old = S.events.find(x => x.id === id);
+    const doc = old && old.done ? { ...ev, done:true, doneAt: old.doneAt || null } : ev;
+    await write("events/" + id, () => S.db.doc("events/" + id).set(doc));
+  }
 }
 
 /* "Plan my day": keeps anything you timed yourself, then fits today's untimed tasks into the gaps,
@@ -1067,7 +1089,7 @@ function renderToday(){
       if(!placed && it.time > now){ rows += `<li class="now" aria-label="Now"><span>Now · ${esc(fmtTime(now))}</span></li>`; placed = true; }
       if(it.k === "e"){
         const e = it.e, past = (e.end || e.time) < now;
-        rows += `<li class="task tl ev${past ? " past" : ""}"><span class="tchip">${esc(fmtTime(e.time))}${e.end ? `<small>to ${esc(fmtTime(e.end))}</small>` : ""}</span><span class="evdot" aria-hidden="true">${I.cal}</span><span class="ttitle">${esc(e.title)}${e.location ? `<span class="evloc">${esc(e.location)}</span>` : ""}</span></li>`;
+        rows += `<li class="task tl ev${e.done ? " done" : past ? " past" : ""}"><span class="tchip">${esc(fmtTime(e.time))}${e.end ? `<small>to ${esc(fmtTime(e.end))}</small>` : ""}</span><button class="check evcheck" data-write data-action="ev-toggle" data-id="${esc(e.id)}" aria-label="${e.done ? "Mark not done" : "Mark done"}: ${esc(e.title)}">${e.done ? I.check : I.cal}</button><span class="ttitle">${esc(e.title)}${e.location ? `<span class="evloc">${esc(e.location)}</span>` : ""}</span></li>`;
       } else {
         const t = it.t;
         rows += taskRow(t, { time:true, mark:true }).replace('<li class="task', `<li class="tl task${t.time < now && !t.done ? " past" : ""}`);
@@ -1101,7 +1123,7 @@ function renderWeek(){
     const rcount = all.filter(t => t.routineId).length, rdone = all.filter(t => t.routineId && t.done).length;
     cols += `<div class="day sticker${OFF_DAYS.has(d.getDay()) ? " off" : ""}" data-drop="${key}">
       <div class="day-h"><b>${i === 0 ? "Today" : i === 1 ? "Tomorrow" : esc(wk(d))}</b><span>${esc(d.toLocaleDateString(undefined,{month:"short",day:"numeric"}))}</span></div>
-      ${eventsOn(key).length ? `<div class="evs">${eventsOn(key).map(e => `<span class="evchip" title="${esc(e.location || "")}">${I.cal}<b>${esc(e.allDay || e.date !== key ? "All day" : fmtTime(e.time))}</b> ${esc(e.title)}</span>`).join("")}</div>` : ""}
+      ${eventsOn(key).length ? `<div class="evs">${eventsOn(key).map(e => evChip(e, key)).join("")}</div>` : ""}
       ${ts.length ? `<ul class="tasks">${ts.map(t => taskRow(t,{showTime:true})).join("")}</ul>` : ""}
       ${rcount ? `<button class="rcount" data-action="routines">${I.repeat}${rdone ? `${rdone}/${rcount}` : rcount} routine${rcount === 1 ? "" : "s"}</button>` : ""}
       <button class="add-day" data-write data-action="add" data-date="${key}" aria-label="Add a task on ${esc(label(key))}">+ Add</button>
@@ -1129,7 +1151,7 @@ function renderMonth(){
   for(let d = new Date(start); d <= end; d = addDays(d, 1)){
     const key = ymd(d), evs = eventsOn(key);
     const ts = onDay(key).filter(t => !t.routineId).sort((a, b) => (a.done - b.done) || byTime(a, b));
-    const items = evs.map(e => `<span class="mi ev" title="${esc(evRange(e))}">${esc(e.title)}</span>`)
+    const items = evs.map(e => `<span class="mi ev${e.done ? " done" : ""}" title="${esc(evRange(e))}">${esc(e.title)}</span>`)
       .concat(ts.map(t => `<button type="button" class="mi tk${t.done ? " done" : ""}" style="--goal:${esc(goalColor(goalById(t.goalId)))}" data-action="edit" data-id="${esc(t.id)}" ${S.canWrite ? `draggable="true" data-drag="${esc(t.id)}"` : ""}>${t.star ? "★ " : ""}${esc(t.title)}</button>`));
     const shown = items.slice(0, 4).join(""), more = items.length - 4;
     cells += `<div class="mcell${d.getMonth() !== first.getMonth() ? " out" : ""}${key === today() ? " mtoday" : ""}${OFF_DAYS.has(d.getDay()) ? " off" : ""}" data-drop="${key}" data-action="day-open" data-date="${key}">
@@ -1147,7 +1169,7 @@ function openDaySheet(key){
   const evs = eventsOn(key), ts = onDay(key).sort((a, b) => (a.done - b.done) || byTime(a, b));
   const d = parse(key);
   showSheet(`<h4 id="sheet-h">${esc(d.toLocaleDateString(undefined, { weekday:"long", month:"long", day:"numeric" }))}</h4>
-    ${evs.length ? `<p class="subhead" style="margin-top:0">Calendar</p><div class="evs" style="margin-bottom:10px">${evs.map(e => `<span class="evchip">${I.cal}<b>${esc(e.allDay || e.date !== key ? "All day" : evRange(e))}</b> ${esc(e.title)}</span>`).join("")}</div>` : ""}
+    ${evs.length ? `<p class="subhead" style="margin-top:0">Calendar</p><div class="evs" style="margin-bottom:10px">${evs.map(e => evChip(e, key, true)).join("")}</div>` : ""}
     ${ts.length ? `<p class="subhead">Tasks</p><ul class="tasks">${ts.map(t => taskRow(t, { mark:true, showTime:true })).join("")}</ul>` : ""}
     ${!evs.length && !ts.length ? `<p class="muted">Nothing on this day yet.</p>` : ""}
     <div class="sheet-foot">${key >= today() && key <= ymd(addDays(parse(today()), 6)) ? `<button class="btn" data-action="cal-week-from" data-date="${key}">Show in week view</button>` : "<span></span>"}<span style="display:flex;gap:8px"><button class="btn ghost" data-action="close">Close</button><button class="btn primary" data-write data-action="add" data-date="${key}">${I.plus}Add</button></span></div>`, ".btn");
@@ -1687,6 +1709,7 @@ document.addEventListener("click", e => {
     case "undo-plan": undoPlan(); document.getElementById("toast").hidden = true; break;
     case "clear-time": { const ti = document.getElementById("sh-time"); if(ti) ti.value = ""; break; }
     case "routines": openRoutines(); break;
+    case "ev-toggle": toggleEvent(id); break;
     case "cal-mode": CAL.mode = b.dataset.mode; CAL.off = 0; try{ localStorage.setItem("sunpath-cal", CAL.mode); }catch(_){} render(); break;
     case "cal-prev": CAL.off--; render(); break;
     case "cal-next": CAL.off++; render(); break;
