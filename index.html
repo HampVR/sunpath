@@ -1401,7 +1401,7 @@ function voice(c, t, type, pts, peak, dur, formants){
   o.type = type;
   o.frequency.setValueAtTime(pts[0][1], t);
   for(const [dt, f] of pts.slice(1)) o.frequency.linearRampToValueAtTime(f, t + dt);
-  const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = 7; lg.gain.value = pts[0][1] * 0.02; lfo.connect(lg); lg.connect(o.frequency);
+  const lfo = c.createOscillator(), lg = c.createGain(); lfo.frequency.value = type === "triangle" ? 9 : 7; lg.gain.value = pts[0][1] * 0.02; lfo.connect(lg); lg.connect(o.frequency);
   g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 0.03); g.gain.setValueAtTime(peak, t + dur * 0.55); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
   lp.type = "lowpass"; lp.frequency.value = 4200;
   for(const [fs, q, amt] of formants){
@@ -1413,7 +1413,9 @@ function voice(c, t, type, pts, peak, dur, formants){
   o.start(t); lfo.start(t); o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
 }
 function playMeow(c, t){
-  voice(c, t, "sawtooth", [[0, 540], [0.13, 900], [0.3, 760], [0.5, 560]], 0.32, 0.55, [[[900, 1700, 1300, 800], 5, 1], [[2600, 3000, 2400], 7, 0.45]]);
+  // a quick, bright "mew!" that lifts at the end, then a tiny happy "mrrp" chirp on top
+  voice(c, t, "triangle", [[0, 720], [0.07, 1050], [0.2, 980], [0.3, 1320]], 0.36, 0.32, [[[1300, 2300, 2000, 2600], 4, 1.2], [[3200, 3600], 7, 0.5]]);
+  voice(c, t + 0.33, "triangle", [[0, 1250], [0.05, 1650], [0.1, 1800]], 0.24, 0.13, [[[2200, 2900], 4, 1.1]]);
 }
 function playYip(c, t){
   for(const [dt, hi, lo] of [[0, 900, 460], [0.17, 1050, 520]]){
