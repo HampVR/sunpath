@@ -189,6 +189,19 @@ button.perch:hover{transform:rotate(-3deg) scale(1.06)}
 .tl-h .subhead{display:inline-flex;align-items:center;gap:6px}
 .tl-h .subhead svg{width:15px;height:15px}
 .mini.ghosty{background:var(--surface)}
+.task.ev{background:color-mix(in srgb,var(--sky) 16%,var(--surface))}
+.task.ev .ttitle{cursor:default;font-weight:700}
+.evdot{flex:none;width:26px;height:26px;border-radius:9px;display:grid;place-items:center;background:var(--sky);color:#3B2343;border:2px solid var(--edge);position:relative;z-index:1}
+.evdot svg{width:14px;height:14px}
+.evloc{display:block;font-size:.78rem;font-weight:600;color:var(--ink-soft)}
+.allday{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
+.evs{display:flex;flex-direction:column;gap:4px}
+.evchip{display:inline-flex;align-items:flex-start;gap:5px;font-size:.8rem;font-weight:700;background:color-mix(in srgb,var(--sky) 30%,var(--surface));border:2px solid color-mix(in srgb,var(--sky) 70%,var(--edge));border-radius:10px;padding:3px 8px;line-height:1.25}
+.evchip svg{width:12px;height:12px;flex:none;margin-top:2px}
+.evchip b{font-weight:800;white-space:nowrap}
+.ics-list{margin:4px 0 14px}
+.evrow{display:flex;flex-direction:column;gap:1px;padding:6px 8px;border-radius:10px;background:var(--bg);font-weight:700}
+.evtime{font-size:.76rem;color:var(--ink-soft)}
 .tl-btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .tchip small{display:block;font-size:.68rem;font-weight:700;opacity:.75}
 .task.swap{outline:2px dashed var(--pink);outline-offset:2px}
@@ -424,6 +437,7 @@ const I = {
   note:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 17.5a3 3 0 1 1-2-2.83V5l12-2v12.5a3 3 0 1 1-2-2.83V7.1l-8 1.33z"/></svg>',
   repeat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>',
   clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  cal:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>',
   plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
   paw:'<svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="6" cy="10" rx="2.2" ry="2.8"/><ellipse cx="10" cy="6" rx="2.2" ry="2.8"/><ellipse cx="14.5" cy="6" rx="2.2" ry="2.8"/><ellipse cx="18.5" cy="10" rx="2.2" ry="2.8"/><path d="M12.2 11c2.6 0 5.3 3.2 5.3 5.6 0 1.8-1.3 2.6-2.8 2.6-1 0-1.7-.5-2.5-.5s-1.5.5-2.5.5c-1.5 0-2.8-.8-2.8-2.6C6.9 14.2 9.6 11 12.2 11z"/></svg>',
   palette:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.9 1.8-1.8 0-1.3-1-1.6-1-2.7 0-.9.8-1.5 1.7-1.5H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/></svg>'
@@ -442,7 +456,7 @@ const SLOTS = [
 /* ---------- state ---------- */
 const S = {
   db:null, assets:null, canWrite:true,
-  goals:[], tasks:[], routines:[], settings:{},
+  goals:[], tasks:[], routines:[], events:[], settings:{},
   got:{goals:false,tasks:false,settings:false,routines:false},
   note:"", openRoad:new Set(), flash:new Set(), pending:false
 };
@@ -782,6 +796,7 @@ function renderDetail(id){
 function renderFoot(){
   document.getElementById("foot").innerHTML = (editable() ? `<button class="pill" data-action="customize">${I.palette}Icons & background</button>` : "") +
     (S.canWrite ? `<button class="pill" data-action="routines">${I.repeat}Daily routines</button>` : "") +
+    (S.canWrite ? `<button class="pill" data-action="ics">${I.cal}Calendar</button>` : "") +
     (GH_MODE && GH.cfg ? `<button class="pill" data-action="gh-settings"><span id="sync">${esc(GH.status || "Synced")}</span></button>` : "");
 }
 function renderNote(){
@@ -812,6 +827,119 @@ function goalChip(g){
   return `<span class="chip${g.icon ? "" : " noicon"}" style="--goal:${esc(goalColor(g))}">${g.icon ? slot(g.icon, "", g.title, {static:true}) : ""}${esc(g.title)}</span>`;
 }
 
+/* ---------- calendar events (imported from an .ics export; read-only in the planner) ---------- */
+const eventsOn = date => S.events.filter(e => e.date <= date && (e.endDate || e.date) >= date)
+  .sort((a, b) => (a.allDay ? "" : a.time || "") < (b.allDay ? "" : b.time || "") ? -1 : 1);
+const timedOn = date => eventsOn(date).filter(e => !e.allDay && e.time && e.date === date);
+const allDayOn = date => eventsOn(date).filter(e => e.allDay || e.date !== date);
+function evRange(e){ return e.time ? fmtTime(e.time) + (e.end ? "–" + fmtTime(e.end) : "") : "All day"; }
+/* a small .ics reader: unfolds lines, reads VEVENTs (skipping alarms), handles UTC, local-timezone and
+   all-day dates, and expands simple repeats (daily/weekly/monthly/yearly, interval, until, count, weekdays, exdates) */
+function parseICS(text, from, to){
+  const lines = String(text).replace(/\r\n?/g, "\n").replace(/\n[ \t]/g, "").split("\n");
+  const raw = []; let cur = null, inAlarm = false;
+  const unesc = v => v.replace(/\\n/gi, " ").replace(/\\([,;\\])/g, "$1").trim();
+  const parseDT = (v, p) => {
+    const m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/.exec(v.trim()); if(!m) return null;
+    const [, y, mo, d, h, mi, , z] = m;
+    if(!h || p.VALUE === "DATE") return { allDay:true, at:new Date(+y, +mo - 1, +d) };
+    return { allDay:false, at: z ? new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi)) : new Date(+y, +mo - 1, +d, +h, +mi) };
+  };
+  for(const ln of lines){
+    if(ln === "BEGIN:VEVENT"){ cur = { ex:[] }; continue; }
+    if(ln === "END:VEVENT"){ if(cur && cur.start) raw.push(cur); cur = null; continue; }
+    if(!cur) continue;
+    if(ln.startsWith("BEGIN:VALARM")){ inAlarm = true; continue; }
+    if(ln.startsWith("END:VALARM")){ inAlarm = false; continue; }
+    if(inAlarm) continue;
+    const i = ln.indexOf(":"); if(i < 0) continue;
+    const [name, ...ps] = ln.slice(0, i).split(";"), val = ln.slice(i + 1);
+    const p = Object.fromEntries(ps.map(x => x.split("=")));
+    if(name === "SUMMARY") cur.title = unesc(val);
+    else if(name === "LOCATION") cur.location = unesc(val);
+    else if(name === "UID") cur.uid = val.trim();
+    else if(name === "DTSTART") cur.start = parseDT(val, p);
+    else if(name === "DTEND") cur.end = parseDT(val, p);
+    else if(name === "RRULE") cur.rule = Object.fromEntries(val.split(";").map(x => x.split("=")));
+    else if(name === "EXDATE") val.split(",").forEach(v => { const d = parseDT(v, p); if(d) cur.ex.push(d.at.getTime()); });
+  }
+  const out = [], seen = new Set();
+  const hm = d => pad(d.getHours()) + ":" + pad(d.getMinutes());
+  const DAYS = { SU:0, MO:1, TU:2, WE:3, TH:4, FR:5, SA:6 };
+  const push = (ev, at, len) => {
+    if(ev.ex.includes(at.getTime())) return;
+    const endAt = new Date(at.getTime() + len);
+    if(endAt < from || at > to) return;
+    const allDay = ev.start.allDay;
+    const lastDay = allDay ? new Date(endAt.getTime() - 1) : endAt;
+    const title = ev.title || "(No title)";
+    const key = title.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "") + "|" + ymd(at) + "|" + (allDay ? "" : hm(at));
+    if(seen.has(key)) return; seen.add(key);
+    const doc = { title, date: ymd(at), allDay, src:"ics", uid: ev.uid || key };
+    if(!allDay){ doc.time = hm(at); if(ymd(endAt) === ymd(at) && len > 0) doc.end = hm(endAt); }
+    if(ymd(lastDay) !== ymd(at)) doc.endDate = ymd(lastDay);
+    if(ev.location) doc.location = ev.location.slice(0, 120);
+    out.push(doc);
+  };
+  for(const ev of raw){
+    const start = ev.start.at, len = ev.end ? Math.max(0, ev.end.at - start) : (ev.start.allDay ? 864e5 : 0);
+    const r = ev.rule;
+    if(!r){ push(ev, start, len); continue; }
+    const freq = r.FREQ, step = Math.max(1, parseInt(r.INTERVAL || "1", 10));
+    const until = r.UNTIL ? parseDT(r.UNTIL, {}).at : null, count = r.COUNT ? parseInt(r.COUNT, 10) : Infinity;
+    const byday = r.BYDAY ? r.BYDAY.split(",").map(x => DAYS[x.slice(-2)]).filter(x => x !== undefined) : null;
+    let n = 0;
+    for(let k = 0; k < 2000 && n < count; k++){
+      let batch = [];
+      const base = new Date(start);
+      if(freq === "DAILY") base.setDate(base.getDate() + k * step);
+      else if(freq === "WEEKLY") base.setDate(base.getDate() + k * step * 7);
+      else if(freq === "MONTHLY") base.setMonth(base.getMonth() + k * step);
+      else if(freq === "YEARLY") base.setFullYear(base.getFullYear() + k * step);
+      else break;
+      if(freq === "WEEKLY" && byday){
+        const wkStart = new Date(base); wkStart.setDate(base.getDate() - base.getDay());
+        batch = byday.map(dw => { const x = new Date(wkStart); x.setDate(wkStart.getDate() + dw); x.setHours(start.getHours(), start.getMinutes(), 0, 0); return x; }).filter(x => x >= start).sort((a, b) => a - b);
+      } else batch = [base];
+      let stop = false;
+      for(const at of batch){
+        if((until && at > until) || at > to){ stop = true; break; }
+        if(n >= count){ stop = true; break; }
+        n++; push(ev, at, len);
+      }
+      if(stop) break;
+    }
+  }
+  return out.sort((a, b) => (a.date + (a.time || "")) < (b.date + (b.time || "")) ? -1 : 1);
+}
+const evId = e => "ev_" + Array.from(e.uid + "|" + e.date).reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7).toString(36) + e.date.replace(/-/g, "");
+function openImportSheet(){
+  SH = { mode:"import", parsed:null };
+  showSheet(`<h4 id="sheet-h">Import your calendar</h4>
+    <p class="muted" style="margin-bottom:12px">Export your calendar as an .ics file (in Tuta: Settings, Calendar, Export), then pick it here. Only titles, times and places are kept, for events from today through the next six months. Importing again replaces the last import.</p>
+    <div class="drop" id="ics-drop"><label class="flabel" for="ics-input">Calendar file</label><input type="file" id="ics-input" accept=".ics,text/calendar"><p class="up-status" id="ics-status" aria-live="polite"></p></div>
+    <div id="ics-preview"></div>
+    <div class="sheet-foot">${S.events.length ? `<button class="btn ghost" data-action="ics-clear">Remove imported events</button>` : "<span></span>"}<span style="display:flex;gap:8px"><button class="btn ghost" data-action="close">Cancel</button><button class="btn primary" data-action="ics-import" id="ics-go" disabled>Import</button></span></div>`, "#ics-input");
+}
+document.addEventListener("change", async e => {
+  if(!e.target || e.target.id !== "ics-input") return;
+  const f = e.target.files && e.target.files[0]; if(!f) return;
+  const st = document.getElementById("ics-status");
+  try{
+    const from = parse(today()), to = addDays(from, 183);
+    const evs = parseICS(await f.text(), from, to);
+    SH.parsed = evs;
+    st.textContent = evs.length ? `Found ${evs.length} upcoming event${evs.length === 1 ? "" : "s"}.` : "No upcoming events in that file.";
+    document.getElementById("ics-preview").innerHTML = evs.length ? `<ul class="tasks ics-list">${evs.slice(0, 8).map(ev => `<li class="evrow"><span class="evtime">${esc(label(ev.date))} · ${esc(evRange(ev))}</span><span>${esc(ev.title)}</span></li>`).join("")}${evs.length > 8 ? `<li class="muted">…and ${evs.length - 8} more</li>` : ""}</ul>` : "";
+    document.getElementById("ics-go").disabled = !evs.length;
+  }catch(_){ st.textContent = "Couldn't read that file. Make sure it's an .ics calendar export."; }
+});
+async function importEvents(evs){
+  const keep = new Set(evs.map(evId));
+  for(const old of S.events.filter(x => x.src === "ics" && !keep.has(x.id))) await write("events/" + old.id, () => S.db.doc("events/" + old.id).delete());
+  for(const ev of evs){ const id = evId(ev); await write("events/" + id, () => S.db.doc("events/" + id).set(ev)); }
+}
+
 /* "Plan my day": keeps anything you timed yourself, then fits today's untimed tasks into the gaps,
    biggest first, with a short break after each. Tasks it places are marked planned:true so a re-plan can move them. */
 const toMin = hm => { const [h, m] = hm.split(":").map(Number); return h * 60 + m; };
@@ -821,7 +949,8 @@ function planDay(){
   const list = onDay(today()).filter(t => !t.done);
   const nowM = Math.ceil((now.getHours() * 60 + now.getMinutes()) / 15) * 15;
   const start = Math.max(nowM, isWork ? 16 * 60 + 30 : 9 * 60), end = isWork ? 20 * 60 : 22 * 60;
-  const busy = list.filter(t => t.time && !t.planned).map(t => [toMin(t.time), toMin(t.time) + (t.dur || (t.routineId ? 15 : 30))]);
+  const busy = list.filter(t => t.time && !t.planned).map(t => [toMin(t.time), toMin(t.time) + (t.dur || (t.routineId ? 15 : 30))])
+    .concat(timedOn(today()).map(e => [toMin(e.time), e.end ? toMin(e.end) : toMin(e.time) + 60]));
   const one = list.find(t => t.star) || list.find(t => t.goalId) || list.find(t => !t.routineId);
   const todo = list.filter(t => !t.routineId && (!t.time || t.planned))
     .sort((a, b) => (b === one) - (a === one) || (!!b.goalId - !!a.goalId) || byOrder(a, b));
@@ -895,15 +1024,24 @@ function renderToday(){
       <button class="btn primary" type="submit">Add</button>
     </form>`;
   let tl = "";
-  if(timed.length){
+  const tevs = timedOn(today()), adevs = allDayOn(today());
+  if(timed.length || tevs.length || adevs.length){
     const now = nowHM(); let rows = "", placed = false;
-    for(const t of timed){
-      if(!placed && t.time > now){ rows += `<li class="now" aria-label="Now"><span>Now · ${esc(fmtTime(now))}</span></li>`; placed = true; }
-      rows += taskRow(t, { time:true, mark:true }).replace('<li class="task', `<li class="tl task${t.time < now && !t.done ? " past" : ""}`);
+    const items = timed.map(t => ({ k:"t", time:t.time, t })).concat(tevs.map(e => ({ k:"e", time:e.time, e }))).sort((a, b) => a.time < b.time ? -1 : a.time > b.time ? 1 : (a.k === "e" ? -1 : 1));
+    for(const it of items){
+      if(!placed && it.time > now){ rows += `<li class="now" aria-label="Now"><span>Now · ${esc(fmtTime(now))}</span></li>`; placed = true; }
+      if(it.k === "e"){
+        const e = it.e, past = (e.end || e.time) < now;
+        rows += `<li class="task tl ev${past ? " past" : ""}"><span class="tchip">${esc(fmtTime(e.time))}${e.end ? `<small>to ${esc(fmtTime(e.end))}</small>` : ""}</span><span class="evdot" aria-hidden="true">${I.cal}</span><span class="ttitle">${esc(e.title)}${e.location ? `<span class="evloc">${esc(e.location)}</span>` : ""}</span></li>`;
+      } else {
+        const t = it.t;
+        rows += taskRow(t, { time:true, mark:true }).replace('<li class="task', `<li class="tl task${t.time < now && !t.done ? " past" : ""}`);
+      }
     }
     if(!placed) rows += `<li class="now" aria-label="Now"><span>Now · ${esc(fmtTime(now))}</span></li>`;
     tl = `<div class="card sticker timeline">
       <div class="tl-h"><span class="subhead" style="margin:0">${I.clock} Timeline</span><span class="tl-btns"><button class="mini" data-write data-action="plan-day">✦ Plan my day</button><button class="mini ghosty" data-write data-action="add" data-date="${today()}" data-time="1">+ At a time</button></span></div>
+      ${adevs.length ? `<div class="allday">${adevs.map(e => `<span class="evchip">${I.cal}${esc(e.title)}</span>`).join("")}</div>` : ""}
       <ul class="tasks tl-list">${rows}</ul></div>`;
   }
   let extra = "";
@@ -928,6 +1066,7 @@ function renderWeek(){
     const rcount = all.filter(t => t.routineId).length, rdone = all.filter(t => t.routineId && t.done).length;
     cols += `<div class="day sticker${OFF_DAYS.has(d.getDay()) ? " off" : ""}" data-drop="${key}">
       <div class="day-h"><b>${i === 0 ? "Today" : i === 1 ? "Tomorrow" : esc(wk(d))}</b><span>${esc(d.toLocaleDateString(undefined,{month:"short",day:"numeric"}))}</span></div>
+      ${eventsOn(key).length ? `<div class="evs">${eventsOn(key).map(e => `<span class="evchip" title="${esc(e.location || "")}">${I.cal}<b>${esc(e.allDay || e.date !== key ? "All day" : fmtTime(e.time))}</b> ${esc(e.title)}</span>`).join("")}</div>` : ""}
       ${ts.length ? `<ul class="tasks">${ts.map(t => taskRow(t,{showTime:true})).join("")}</ul>` : ""}
       ${rcount ? `<button class="rcount" data-action="routines">${I.repeat}${rdone ? `${rdone}/${rcount}` : rcount} routine${rcount === 1 ? "" : "s"}</button>` : ""}
       <button class="add-day" data-write data-action="add" data-date="${key}" aria-label="Add a task on ${esc(label(key))}">+ Add</button>
@@ -1471,6 +1610,9 @@ document.addEventListener("click", e => {
     case "undo-plan": undoPlan(); document.getElementById("toast").hidden = true; break;
     case "clear-time": { const ti = document.getElementById("sh-time"); if(ti) ti.value = ""; break; }
     case "routines": openRoutines(); break;
+    case "ics": openImportSheet(); break;
+    case "ics-import": if(SH && SH.parsed){ const evs = SH.parsed; closeSheet(); toast("Importing " + evs.length + " events…"); importEvents(evs).then(() => toast("Calendar imported")); } break;
+    case "ics-clear": { closeSheet(); const olds = S.events.filter(x => x.src === "ics"); (async () => { for(const o of olds) await write("events/" + o.id, () => S.db.doc("events/" + o.id).delete()); toast("Imported events removed"); })(); break; }
     case "routine-edit": openRoutine(id || null); break;
     case "routine-day": { const d = Number(b.dataset.day); SH.days = SH.days.includes(d) ? SH.days.filter(x => x !== d) : [...SH.days, d];
       b.setAttribute("aria-pressed", String(SH.days.includes(d))); break; }
@@ -1620,9 +1762,9 @@ function useCap(name){
    with the file's sha; if someone else (like Claude) pushed first, the page re-reads
    and re-applies its queued changes. */
 const GH = { cfg:null, remote:null, sha:null, etag:null, pending:[], pushing:false, again:false, timer:null, status:"" };
-const emptyData = () => ({ goals:{}, tasks:{}, routines:{}, settings:{ main:{} } });
+const emptyData = () => ({ goals:{}, tasks:{}, routines:{}, events:{}, settings:{ main:{} } });
 const clone = o => JSON.parse(JSON.stringify(o));
-function normalize(d){ d = d && typeof d === "object" ? d : {}; for(const k of ["goals","tasks","routines","settings"]) if(!d[k] || typeof d[k] !== "object") d[k] = {}; if(!d.settings.main) d.settings.main = {}; return d; }
+function normalize(d){ d = d && typeof d === "object" ? d : {}; for(const k of ["goals","tasks","routines","events","settings"]) if(!d[k] || typeof d[k] !== "object") d[k] = {}; if(!d.settings.main) d.settings.main = {}; return d; }
 function api(path, opt = {}, repo){
   const c = GH.cfg;
   return fetch("https://api.github.com/repos/" + encodeURIComponent(c.owner) + "/" + encodeURIComponent(repo || c.repo) + path, {
@@ -1648,7 +1790,7 @@ function setStatus(t){ GH.status = t; const el = document.getElementById("sync")
 function ghNotify(){
   const v = applyOps(clone(GH.remote || emptyData()), GH.pending);
   const arr = o => Object.entries(o || {}).map(([id, d]) => ({ id, ...d }));
-  S.goals = arr(v.goals); S.tasks = arr(v.tasks); S.routines = arr(v.routines); S.settings = { ...(v.settings.main || {}) };
+  S.goals = arr(v.goals); S.tasks = arr(v.tasks); S.routines = arr(v.routines); S.events = arr(v.events); S.settings = { ...(v.settings.main || {}) };
   S.got = { goals:true, tasks:true, settings:true, routines:true };
   render();
 }
@@ -1925,6 +2067,7 @@ document.addEventListener("click", e => {
   const fail = (what) => (e) => { clearTimeout(slow); S.got[what] = true; S.note = e && e.code === "revoked" ? "" : "Lost the connection to your tracker. Reload the page to try again."; render(); };
   db.collection("goals").onSnapshot(s => { S.goals = s.docs.map(d => ({ id:d.id, ...d.data() })); S.got.goals = true; settle(s); render(); }, fail("goals"));
   db.collection("tasks").onSnapshot(s => { S.tasks = s.docs.map(d => ({ id:d.id, ...d.data() })); S.got.tasks = true; settle(s); render(); }, fail("tasks"));
+  db.collection("events").onSnapshot(s => { S.events = s.docs.map(d => ({ id:d.id, ...d.data() })); render(); }, fail("events"));
   db.collection("routines").onSnapshot(s => { S.routines = s.docs.map(d => ({ id:d.id, ...d.data() })); S.got.routines = true; render(); }, fail("routines"));
   db.doc("settings/main").onSnapshot(s => { S.settings = s.exists ? { ...s.data() } : {}; S.got.settings = true; render(); }, fail("settings"));
 })();
