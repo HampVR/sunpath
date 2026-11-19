@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sol's Sunpath</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a sticker-book planner. Sol's own art and furry icons sit beside every card
+   like little buddies; progress lights up as candy-colored solar cells. */
+:root{
+  --bg:#FFF2F7;
+  --dots:#FFD6E6;
+  --surface:#FFFFFF;
+  --ink:#3B2343;
+  --ink-soft:#7B5E84;
+  --hair:#EFDDF1;
+  --edge:#3B2343;
+  --shadow:#3B2343;
+  --pink:#FF8DB9;
+  --sun:#FFCB45;
+  --mint:#7EDDBF;
+  --sky:#8EC4FF;
+  --lav:#C6A8FF;
+  --peach:#FFB48A;
+  --warn:#D9466B;
+  --display:"Fredoka", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --body:"Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#1D1424; --dots:#2C1F35; --surface:#2A1E33; --ink:#F7ECF8; --ink-soft:#C6AECD; --hair:#3E2E49;
+    --edge:#E9D6F0; --shadow:#08040B; --pink:#FF8DB9; --sun:#FFCB45; --mint:#6FD3B4; --sky:#86BDFF; --lav:#BFA0FF; --peach:#FFAA7D; --warn:#FF7393;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#1D1424; --dots:#2C1F35; --surface:#2A1E33; --ink:#F7ECF8; --ink-soft:#C6AECD; --hair:#3E2E49;
+  --edge:#E9D6F0; --shadow:#08040B; --pink:#FF8DB9; --sun:#FFCB45; --mint:#6FD3B4; --sky:#86BDFF; --lav:#BFA0FF; --peach:#FFAA7D; --warn:#FF7393;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background-color:var(--bg);background-image:radial-gradient(var(--dots) 2.2px,transparent 2.6px);background-size:22px 22px;
+  color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--pink);outline-offset:2px;border-radius:8px}
+img{max-width:100%}
+.wrap{max-width:1140px;margin:0 auto;padding:0 16px 48px}
+#bgimg{position:fixed;inset:0;z-index:-1;display:none;overflow:hidden}
+#bgimg.on{display:block}
+#bgimg::after{content:"";position:absolute;inset:0;background:var(--bg);opacity:var(--dim,.45)}
+.bgl{position:absolute;inset:0;opacity:0;transition:opacity 3s ease;overflow:hidden}
+.bgl i{position:absolute;left:0;right:0;top:0;height:100%;background-size:cover;background-position:center}
+.bgl i.pan{height:125%;background-position:center top;animation:pan 27s linear forwards}
+@keyframes pan{from{transform:translateY(0)}to{transform:translateY(-20%)}}
+.thumbs{display:flex;gap:8px;flex-wrap:wrap;flex-basis:100%}
+.thumb{position:relative;width:64px;height:88px;border-radius:12px;overflow:hidden;border:2px solid var(--edge)}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb button{position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;border:2px solid var(--edge);background:var(--surface);font-weight:800;font-size:12px;line-height:1;padding:0;display:grid;place-items:center}
+.thumb b{position:absolute;left:4px;bottom:3px;font-size:.7rem;background:var(--surface);border-radius:6px;padding:0 5px}
+body.has-bg{background-image:none}
+.dims{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.sticker{background:var(--surface);border:2px solid var(--edge);border-radius:22px;box-shadow:4px 4px 0 var(--shadow)}
+
+/* icon slots */
+.ic{--s:44px;flex:none;width:var(--s);height:var(--s);border-radius:50%;padding:0;border:2px solid var(--edge);background:var(--surface);
+  display:grid;place-items:center;overflow:hidden;position:relative;box-shadow:2px 2px 0 var(--shadow)}
+.ic img{width:100%;height:100%;object-fit:cover;display:block}
+.ic.empty{border-style:dashed;background:color-mix(in srgb,var(--c,var(--pink)) 22%,var(--surface));color:var(--ink-soft);box-shadow:none}
+.ic.empty svg{width:52%;height:52%}
+.ic .plus{position:absolute;right:-1px;bottom:-1px;width:38%;height:38%;min-width:14px;min-height:14px;border-radius:50%;background:var(--pink);color:var(--ink);border:2px solid var(--edge);display:grid;place-items:center;font-weight:800;font-size:11px;line-height:1}
+button.ic:hover{transform:rotate(-6deg)}
+.vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;opacity:0}
+.ic.tiny{--s:22px;border-width:1.5px;box-shadow:none}
+.ic.tiny.empty{display:none}
+
+/* Top bar: your icon + greeting bubble, sitting on the background */
+.topbar{max-width:1108px;margin:18px auto 0;display:flex;align-items:flex-end;gap:12px}
+@media (max-width:1140px){.topbar{margin:18px 16px 0}}
+.topbar > .ic{--s:clamp(64px,13vw,88px);border-width:3px;box-shadow:3px 3px 0 var(--shadow)}
+.say{position:relative;flex:1;min-width:0;background:var(--surface);color:var(--ink);border:2px solid var(--edge);border-radius:22px 22px 22px 6px;padding:12px 16px;box-shadow:4px 4px 0 var(--shadow)}
+.say.edit{padding-right:64px}
+.date-line{margin:0;font-size:.78rem;letter-spacing:.07em;text-transform:uppercase;font-weight:800;color:var(--ink-soft)}
+.greet{margin:1px 0 0;font-family:var(--display);font-weight:600;font-size:clamp(1.3rem,3.4vw,2rem);line-height:1.12;text-wrap:balance}
+.icons-btn{position:absolute;top:10px;right:10px;width:42px;height:42px;border-radius:50%;border:2px solid var(--edge);background:var(--lav);color:#3B2343;display:grid;place-items:center;box-shadow:2px 2px 0 var(--shadow);padding:0}
+.icons-btn svg{width:20px;height:20px}
+.icons-btn:hover{transform:rotate(-8deg)}
+.pill{display:inline-flex;gap:6px;align-items:center;border:2px solid var(--edge);border-radius:999px;padding:6px 12px;font-size:.82rem;font-weight:800;background:var(--surface);color:var(--ink);box-shadow:2px 2px 0 var(--shadow)}
+.pill svg{width:15px;height:15px}
+.pill:hover{transform:translateY(-1px)}
+
+/* Grid */
+.layout{display:grid;gap:26px;margin-top:20px;grid-template-columns:1fr}
+@media (min-width:900px){.layout{grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);align-items:start}}
+.col{display:flex;flex-direction:column;gap:24px;min-width:0}
+.sec-h{display:flex;align-items:center;gap:10px;margin:0 0 12px;flex-wrap:wrap;padding-right:84px;min-height:40px}
+.sec-h h2{margin:0;font-family:var(--display);font-weight:600;font-size:1.45rem}
+.sec-h small{margin-left:auto;font-size:.85rem;color:var(--ink-soft);font-weight:600}
+
+/* Corner stickers */
+#today,#week,#goals{position:relative}
+.perch{position:absolute;top:10px;right:-6px;z-index:4;width:clamp(66px,15vw,88px);height:clamp(66px,15vw,88px);padding:0;border:0;background:none;
+  transform:rotate(9deg);filter:drop-shadow(2px 3px 0 var(--shadow));transition:transform .2s}
+.perch img{width:100%;height:100%;object-fit:contain;display:block}
+button.perch:hover{transform:rotate(-3deg) scale(1.06)}
+.perch.empty{width:44px;height:44px;top:22px;right:6px;border:2px dashed var(--ink-soft);border-radius:50%;background:color-mix(in srgb,var(--surface) 75%,transparent);
+  color:var(--ink-soft);display:grid;place-items:center;filter:none;opacity:.85}
+.perch.empty svg{width:55%;height:55%}
+.perch .plus{position:absolute;right:-3px;bottom:-3px;width:18px;height:18px;border-radius:50%;background:var(--pink);color:#3B2343;border:2px solid var(--edge);display:grid;place-items:center;font-weight:800;font-size:11px;line-height:1}
+
+/* Timeline */
+.tl-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.tl-h .subhead{display:inline-flex;align-items:center;gap:6px}
+.tl-h .subhead svg{width:15px;height:15px}
+.mini.ghosty{background:var(--surface)}
+.tl-list{position:relative;padding-left:2px}
+.tl-list::before{content:"";position:absolute;left:96px;top:6px;bottom:6px;width:3px;border-radius:3px;background:var(--hair)}
+.task.tl{position:relative;background:transparent;padding-left:0}
+.tchip{flex:none;width:76px;text-align:right;font-size:.8rem;font-weight:800;font-variant-numeric:tabular-nums;background:none;border:0;padding:0 6px 0 0;color:var(--ink-soft);position:relative;z-index:1}
+.task.tl .check{position:relative;z-index:1}
+.task.tl.past .ttitle{color:var(--ink-soft)}
+.task.tl.done .tchip{opacity:.6}
+.now{list-style:none;display:flex;align-items:center;gap:8px;margin:2px 0;font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;color:var(--pink)}
+.now::before{content:"";width:12px;height:12px;border-radius:50%;background:var(--pink);border:2px solid var(--edge);margin-left:90px;flex:none}
+.now::after{content:"";flex:1;height:2px;background:var(--pink);border-radius:2px}
+.rmark{display:inline-flex;vertical-align:-2px;color:var(--ink-soft)}
+.rmark svg{width:13px;height:13px}
+.tsmall{font-size:.75rem;font-weight:800;color:var(--ink-soft);white-space:nowrap}
+.rcount{display:inline-flex;align-items:center;gap:5px;border:0;background:none;font-size:.78rem;font-weight:800;color:var(--ink-soft);padding:2px 4px;align-self:flex-start}
+.rcount svg{width:13px;height:13px}
+.rrow{width:100%;text-align:left;border:2px solid transparent;color:var(--ink)}
+.rrow:hover{border-color:var(--hair)}
+.rtime{flex:none;width:72px;font-weight:800;font-size:.85rem;font-variant-numeric:tabular-nums;color:var(--ink-soft)}
+
+/* Quick add */
+.quick{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 12px;border-radius:18px}
+.quick-plus{width:28px;height:28px;border-radius:9px;background:var(--sun);border:2px solid var(--edge);display:grid;place-items:center;color:#3B2343;flex:none}
+.quick-plus svg{width:15px;height:15px}
+.quick input{flex:1;min-width:0;border:0;background:none;padding:8px 4px;font-weight:700;font-size:1rem;outline:none}
+.quick:focus-within{box-shadow:4px 4px 0 var(--pink)}
+
+/* One thing: buddy + speech bubble */
+.one-row{display:flex;gap:12px;align-items:flex-end}
+.one-row > .ic{--s:clamp(70px,16vw,96px);border-width:3px;box-shadow:3px 3px 0 var(--shadow);margin-bottom:6px}
+.one{position:relative;flex:1;min-width:0;border:2px solid var(--edge);border-radius:26px 26px 26px 8px;box-shadow:5px 5px 0 var(--shadow);
+  padding:20px 20px 18px;overflow:hidden;isolation:isolate;color:#3B2343;
+  background:linear-gradient(135deg,#FFE58F 0%,#FFC6DA 70%,#E6CCFF 100%)}
+.one::before{content:"";position:absolute;z-index:-1;width:170px;height:170px;right:-50px;top:-70px;border-radius:50%;
+  background:radial-gradient(circle,#FFF6C9 0 30%,rgba(255,255,255,.45) 31% 50%,transparent 51%)}
+.eyebrow{margin:0 0 6px;font-size:.76rem;letter-spacing:.09em;text-transform:uppercase;font-weight:800;opacity:.8}
+.one h3{margin:0;font-family:var(--display);font-weight:600;font-size:clamp(1.45rem,3.8vw,1.95rem);line-height:1.15;max-width:min(24ch,calc(100% - 50px));text-wrap:balance}
+.one .meta{margin:10px 0 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:.9rem;font-weight:700}
+.one .empty{font-weight:600;max-width:36ch}
+.actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.btn{border:2px solid var(--edge);background:var(--surface);border-radius:14px;padding:8px 14px;font-weight:800;font-size:.92rem;display:inline-flex;align-items:center;gap:6px;box-shadow:2px 2px 0 var(--shadow);color:var(--ink)}
+.btn:hover{transform:translateY(-1px)}
+.btn:active{transform:translate(2px,2px);box-shadow:0 0 0 var(--shadow)}
+.btn.primary{background:var(--pink);color:#3B2343}
+.one .btn{border-color:#3B2343;box-shadow:2px 2px 0 #3B2343;color:#3B2343;background:rgba(255,255,255,.75)}
+.one .btn.primary{background:#FF8DB9}
+.btn.ghost{background:transparent;box-shadow:none}
+.btn svg{width:16px;height:16px}
+
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:3px 10px 3px 4px;font-size:.8rem;font-weight:800;background:var(--goal,#ccc);color:#3B2343;border:2px solid #3B2343}
+.chip .ic{--s:20px;border-width:1.5px;box-shadow:none}
+.chip.noicon{padding-left:10px}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--goal,#ccc);border:2px solid var(--edge);flex:none}
+
+/* Task lists */
+.card{padding:14px 14px 12px}
+.tasks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.task{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:14px;background:color-mix(in srgb,var(--goal,#ccc) 14%,var(--surface));border:2px solid transparent}
+.task:hover{border-color:var(--hair)}
+.task[draggable="true"]{cursor:grab}
+.task.dragging{opacity:.4}
+.check{flex:none;width:26px;height:26px;border-radius:9px;border:2px solid var(--edge);background:var(--surface);display:grid;place-items:center;padding:0}
+.check svg{width:15px;height:15px;opacity:0}
+.task.done .check{background:var(--goal,var(--mint))}
+.task.done .check svg{opacity:1;color:#3B2343}
+.mark{flex:none;display:flex}
+.ttitle{flex:1;min-width:0;text-align:left;background:none;border:0;padding:2px 0;overflow-wrap:anywhere;font-weight:600}
+.task.done .ttitle{text-decoration:line-through;text-decoration-thickness:2px;color:var(--ink-soft)}
+.when{flex:none;font-size:.78rem;font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink);background:var(--surface);border:2px solid var(--hair);border-radius:10px;padding:2px 8px}
+.when.late{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 50%,transparent)}
+.mini{flex:none;font-size:.8rem;font-weight:800;border:2px solid var(--edge);border-radius:10px;padding:3px 9px;background:var(--sun);color:#3B2343}
+.star{color:#E8A400}
+.subhead{margin:14px 0 7px;font-size:.76rem;letter-spacing:.08em;text-transform:uppercase;font-weight:800;color:var(--ink-soft)}
+.subhead:first-child{margin-top:2px}
+.muted{color:var(--ink-soft);margin:0;font-size:.93rem;font-weight:600}
+
+/* Week */
+.week-scroll{overflow-x:auto;padding:2px 6px 10px 2px;scroll-snap-type:x proximity}
+@media (max-width:899px){.week-scroll{margin:0 -16px;padding-left:16px;padding-right:16px}}
+.week{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(160px,1fr);gap:12px;min-width:100%}
+.day{scroll-snap-align:start;border-radius:20px;padding:10px;min-height:160px;display:flex;flex-direction:column;gap:8px;transition:transform .15s}
+.day:nth-child(5n+1){--tint:var(--pink)} .day:nth-child(5n+2){--tint:var(--sky)} .day:nth-child(5n+3){--tint:var(--mint)} .day:nth-child(5n+4){--tint:var(--lav)} .day:nth-child(5n+5){--tint:var(--sun)}
+.day-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:0 6px;background:color-mix(in srgb,var(--tint) 55%,var(--surface));border-radius:12px;padding:4px 9px;color:var(--ink)}
+.day-h b{font-family:var(--display);font-weight:600;font-size:1rem}
+.day-h span{font-size:.76rem;font-weight:800;opacity:.8}
+.day.off .day-h::after{content:"day off";flex-basis:100%;font-size:.66rem;font-weight:800;text-transform:uppercase;letter-spacing:.07em;opacity:.75}
+.day.over{transform:translateY(-3px);background:color-mix(in srgb,var(--tint) 18%,var(--surface))}
+.day .tasks{gap:5px}
+.day .task{padding:6px;font-size:.9rem;align-items:flex-start;border-left:5px solid var(--goal,#ccc)}
+.day .check{width:22px;height:22px;border-radius:8px}
+.add-day{margin-top:auto;border:2px dashed var(--hair);background:none;border-radius:12px;padding:6px;font-size:.85rem;font-weight:800;color:var(--ink-soft)}
+.add-day:hover{border-color:var(--ink-soft);color:var(--ink)}
+
+/* Goals */
+.goal{overflow:visible;position:relative}
+.ghead{position:relative;aspect-ratio:3/1;border-radius:20px 20px 0 0;border-bottom:2px solid var(--edge);overflow:hidden;
+  background:
+    radial-gradient(circle at 20% 35%, rgba(255,255,255,.7) 0 3px, transparent 4px),
+    radial-gradient(circle at 62% 22%, rgba(255,255,255,.7) 0 2px, transparent 3px),
+    radial-gradient(circle at 84% 60%, rgba(255,255,255,.7) 0 2.5px, transparent 3.5px),
+    linear-gradient(135deg, color-mix(in srgb,var(--goal) 85%,#fff) 0%, color-mix(in srgb,var(--goal) 55%,var(--lav)) 100%);
+  background-size:cover;background-position:center}
+.ghead .pill{position:absolute;top:10px;left:10px}
+.gbody{padding:10px 16px 14px;display:flex;flex-direction:column;gap:12px}
+.gtop{display:flex;align-items:flex-start;gap:12px;position:relative;z-index:1}
+.gtop > .ic{--s:72px;border-width:3px;box-shadow:3px 3px 0 var(--shadow);margin-top:-36px}
+.gtop h3{flex:1;min-width:0;margin:10px 0 0;font-family:var(--display);font-weight:600;font-size:1.35rem;line-height:1.15;overflow-wrap:anywhere}
+.icon-btn{border:2px solid var(--edge);background:var(--surface);border-radius:12px;width:36px;height:36px;display:grid;place-items:center;flex:none;box-shadow:2px 2px 0 var(--shadow);margin-top:8px}
+.icon-btn svg{width:17px;height:17px}
+
+.cells{display:grid;grid-template-columns:repeat(var(--n),minmax(0,1fr));gap:4px;height:28px;padding:4px;border:2px solid var(--edge);border-radius:14px;background:var(--hair)}
+.cell{border-radius:7px;background:var(--surface);position:relative;overflow:hidden}
+.cell.lit{background:linear-gradient(150deg,color-mix(in srgb,var(--sun) 50%,#fff) 0%,var(--sun) 50%,color-mix(in srgb,var(--sun) 75%,var(--peach)) 100%)}
+.cell.lit::before{content:"";position:absolute;width:5px;height:5px;left:28%;top:22%;border-radius:50%;background:rgba(255,255,255,.95)}
+.cell.flash::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.95) 50%,transparent 70%);transform:translateX(-120%);animation:shine 1s ease-out forwards}
+@keyframes shine{to{transform:translateX(120%)}}
+.gstat{display:flex;justify-content:space-between;gap:4px 10px;flex-wrap:wrap;margin:0;font-size:.9rem;color:var(--ink-soft);font-weight:600}
+.gstat b{color:var(--ink);font-variant-numeric:tabular-nums}
+
+.metric{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;align-items:center;padding:10px 12px;border-radius:16px;background:color-mix(in srgb,var(--goal) 22%,var(--surface));border:2px solid var(--hair)}
+.metric .num{font-family:var(--display);font-weight:700;font-size:2rem;line-height:1;font-variant-numeric:tabular-nums}
+.metric .lab{font-size:.86rem;color:var(--ink-soft);font-weight:700}
+.gauge{grid-column:1/-1;height:12px;border-radius:99px;background:var(--surface);border:2px solid var(--edge);overflow:hidden;margin-top:6px}
+.gauge i{display:block;height:100%;background:repeating-linear-gradient(135deg,var(--goal) 0 8px,color-mix(in srgb,var(--goal) 70%,#fff) 8px 16px)}
+
+details.roadmap summary{cursor:pointer;font-weight:800;font-size:.93rem;list-style:none;display:inline-flex;align-items:center;gap:6px}
+details.roadmap summary::-webkit-details-marker{display:none}
+details.roadmap summary svg{width:14px;height:14px;transition:transform .15s}
+details.roadmap[open] summary svg{transform:rotate(90deg)}
+details.roadmap .tasks{margin-top:8px}
+.addrow{display:flex;gap:8px;margin-top:10px}
+.addrow input{flex:1;min-width:0;border:2px solid var(--hair);background:var(--bg);border-radius:12px;padding:8px 10px;font-weight:600}
+
+.add-goal{border:2px dashed var(--ink-soft);background:color-mix(in srgb,var(--surface) 60%,transparent);border-radius:22px;padding:18px;font-weight:800;color:var(--ink-soft)}
+.add-goal:hover{color:var(--ink);border-color:var(--ink)}
+
+.setup{max-width:560px;margin:16px auto 0;padding:18px}
+.note{padding:12px 14px;border-radius:16px;background:var(--sun);color:#3B2343;border:2px solid var(--edge);font-size:.93rem;font-weight:700;margin:16px 0 0}
+.foot-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:30px}
+.foot{margin-top:14px;font-size:.86rem;color:var(--ink-soft);text-align:center;font-weight:600}
+
+/* Sheet */
+.backdrop{position:fixed;inset:0;background:rgba(30,12,36,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.backdrop[hidden]{display:none}
+.sheet{width:100%;max-width:540px;max-height:88vh;overflow:auto;background:var(--surface);color:var(--ink);border:2px solid var(--edge);border-bottom:0;border-radius:26px 26px 0 0;padding:18px 18px 24px}
+@media (min-width:640px){.backdrop{align-items:center}.sheet{border-radius:26px;border-bottom:2px solid var(--edge);box-shadow:6px 6px 0 var(--shadow)}}
+.sheet h4{margin:0 0 12px;font-family:var(--display);font-weight:600;font-size:1.35rem}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field > label,.flabel{font-size:.76rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+.field input,.field select,.field textarea{border:2px solid var(--hair);background:var(--bg);border-radius:12px;padding:9px 11px;width:100%;font-weight:600}
+.field textarea{resize:vertical;min-height:58px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.dchip{border:2px solid var(--edge);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:.86rem;font-weight:800}
+.dchip[aria-pressed="true"]{background:var(--pink);color:#3B2343}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sheet-foot{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:6px}
+.btn.danger{color:var(--warn);background:none;box-shadow:none;border-color:color-mix(in srgb,var(--warn) 50%,transparent)}
+.btn.danger.armed{background:var(--warn);color:#fff;border-color:var(--warn)}
+.toggle{display:flex;align-items:center;gap:10px;font-weight:800;font-size:.95rem;margin-bottom:14px}
+.toggle input{width:20px;height:20px;accent-color:var(--pink)}
+.slots{display:flex;flex-direction:column;gap:10px;margin-bottom:12px}
+.slot{display:flex;align-items:center;gap:12px;padding:8px;border-radius:16px;background:var(--bg)}
+.slot .ic{--s:52px}
+.slot .slot-t{flex:1;min-width:0}
+.slot .slot-t b{display:block;font-weight:800}
+.slot .slot-t span{font-size:.84rem;color:var(--ink-soft);font-weight:600}
+.slot .btns{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.slot .btn{padding:6px 10px;font-size:.84rem}
+
+.crop-wrap{display:flex;justify-content:center;width:100%}
+.crop{display:block;touch-action:none;cursor:grab;border-radius:16px;border:2px solid var(--edge);background:var(--hair);max-width:100%}
+.crop:active{cursor:grabbing}
+.crop.round{border-radius:50%}
+.zoom{display:flex;align-items:center;gap:10px}
+.zoom input{flex:1;accent-color:var(--pink)}
+.btn:disabled{opacity:.5;cursor:default;transform:none}
+.drop{border:2px dashed var(--ink-soft);border-radius:18px;padding:16px;display:flex;flex-direction:column;gap:10px;background:var(--bg);margin-bottom:14px}
+.drop.over{border-color:var(--pink);background:color-mix(in srgb,var(--pink) 15%,var(--bg))}
+#up-input{font-weight:700;max-width:100%}
+#up-input::file-selector-button{border:2px solid var(--edge);background:var(--pink);color:#3B2343;border-radius:12px;padding:8px 14px;font:inherit;font-weight:800;margin-right:10px;cursor:pointer}
+.up-prev{width:96px;height:96px;border-radius:50%;overflow:hidden;border:2px solid var(--edge);margin-bottom:12px}
+.up-prev.wide{width:100%;height:auto;aspect-ratio:3/1;border-radius:16px}
+.up-prev img{width:100%;height:100%;object-fit:cover;display:block}
+.up-status{margin:0;font-weight:800}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:30;background:var(--surface);color:var(--ink);border:2px solid var(--edge);box-shadow:3px 3px 0 var(--shadow);
+  padding:8px 16px 8px 8px;border-radius:999px;font-size:.93rem;font-weight:800;max-width:calc(100% - 32px);display:flex;align-items:center;gap:10px}
+.toast[hidden]{display:none}
+.toast .ic{--s:40px;box-shadow:none}
+.toast.plain{padding-left:16px}
+.toast.pop{animation:pop .35s ease-out}
+@keyframes pop{0%{transform:translateX(-50%) scale(.7)}70%{transform:translateX(-50%) scale(1.06)}100%{transform:translateX(-50%) scale(1)}}
+.readonly [data-write]{display:none !important}
+
+@media (prefers-reduced-motion: reduce){
+  .cell.flash::after{animation:none;display:none}
+  .toast.pop{animation:none}
+  *{transition:none !important}
+  button.ic:hover,.btn:hover,.pill:hover{transform:none}
+}
+</style>
+</head>
+<body>
+<div id="bgimg" aria-hidden="true"><div class="bgl" id="bg0"><i></i></div><div class="bgl" id="bg1"><i></i></div></div>
+<main class="wrap">
+  <div id="note"></div>
+  <div class="layout">
+    <div class="col">
+      <section id="today" aria-labelledby="today-h"></section>
+      <section id="week" aria-labelledby="week-h"></section>
+    </div>
+    <div class="col">
+      <section id="goals" aria-labelledby="goals-h"></section>
+    </div>
+  </div>
+  <div class="foot-btns" id="foot"></div>
+  <p class="foot">Tell Claude in chat what you got done, what moved, or what your day looks like, and it can update this for you.</p>
+</main>
+<div class="backdrop" id="backdrop" hidden><div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-h"></div></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- icons ---------- */
+const I = {
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  image:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="4"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg>',
+  dots:'<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2.2"/><circle cx="12" cy="12" r="2.2"/><circle cx="19" cy="12" r="2.2"/></svg>',
+  chev:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
+  arrow:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  note:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 17.5a3 3 0 1 1-2-2.83V5l12-2v12.5a3 3 0 1 1-2-2.83V7.1l-8 1.33z"/></svg>',
+  repeat:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></svg>',
+  clock:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  paw:'<svg viewBox="0 0 24 24" fill="currentColor"><ellipse cx="6" cy="10" rx="2.2" ry="2.8"/><ellipse cx="10" cy="6" rx="2.2" ry="2.8"/><ellipse cx="14.5" cy="6" rx="2.2" ry="2.8"/><ellipse cx="18.5" cy="10" rx="2.2" ry="2.8"/><path d="M12.2 11c2.6 0 5.3 3.2 5.3 5.6 0 1.8-1.3 2.6-2.8 2.6-1 0-1.7-.5-2.5-.5s-1.5.5-2.5.5c-1.5 0-2.8-.8-2.8-2.6C6.9 14.2 9.6 11 12.2 11z"/></svg>',
+  palette:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.2 0 1.8-.9 1.8-1.8 0-1.3-1-1.6-1-2.7 0-.9.8-1.5 1.7-1.5H17a4 4 0 0 0 4-4C21 6.6 17 3 12 3z"/><circle cx="7.5" cy="11" r="1"/><circle cx="10" cy="7" r="1"/><circle cx="15" cy="7" r="1"/></svg>'
+};
+const GOAL_COLORS = ["#7EDDBF","#8EC4FF","#FFCB45","#C6A8FF","#FF8DB9","#FFB48A"];
+const SLOTS = [
+  {key:"one",   name:"Today buddy",   hint:"Sits beside today's one thing",  c:"var(--sun)"},
+  {key:"done",  name:"Done buddy",    hint:"Pops up when you finish something", c:"var(--mint)"},
+  {key:"today", name:"Today sticker", hint:"Perches on the corner of Today. Transparent PNGs look best.", c:"var(--peach)"},
+  {key:"week",  name:"Week sticker",  hint:"Perches on the corner of This week.", c:"var(--sky)"},
+  {key:"goals", name:"Goals sticker", hint:"Perches on the corner of Goals.", c:"var(--lav)"}
+];
+
+/* ---------- state ---------- */
+const S = {
+  db:null, assets:null, canWrite:true,
+  goals:[], tasks:[], routines:[], settings:{},
+  got:{goals:false,tasks:false,settings:false,routines:false},
+  note:"", openRoad:new Set(), flash:new Set(), pending:false
+};
+
+/* ---------- utils ---------- */
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pad = n => String(n).padStart(2,"0");
+const ymd = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const parse = s => { const [y,m,d] = s.split("-").map(Number); return new Date(y,m-1,d); };
+const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const today = () => ymd(new Date());
+const tomorrow = () => ymd(addDays(new Date(),1));
+const wk = d => d.toLocaleDateString(undefined,{weekday:"short"});
+const OFF_DAYS = new Set([0,4,5,6]); // Sun, Thu, Fri, Sat
+function label(s){
+  if(!s) return "No date";
+  if(s === today()) return "Today";
+  if(s === tomorrow()) return "Tomorrow";
+  const d = parse(s), diff = Math.round((d - parse(today()))/864e5);
+  if(diff > 0 && diff < 7) return wk(d)+" "+d.getDate();
+  return d.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+}
+const goalById = id => S.goals.find(g => g.id === id);
+const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+const ALL_DAYS = [0,1,2,3,4,5,6];
+/* tasks the page shows: real ones (minus skipped routine days) plus routine days not yet touched,
+   which exist only on screen until you check, move or edit them */
+const live = () => S.tasks.filter(t => !t.skipped);
+function virtualFor(date){
+  if(!date || date < today()) return [];
+  const dow = parse(date).getDay();
+  return S.routines.filter(r => (Array.isArray(r.days) ? r.days : ALL_DAYS).includes(dow) && !S.tasks.some(t => t.routineId === r.id && t.rdate === date))
+    .map(r => ({ id:"v_" + r.id + "_" + date, virtual:true, routineId:r.id, rdate:date, title:r.title, time:r.time || null, date, done:false, goalId:null, star:false, order:0 }));
+}
+const onDay = date => [...live().filter(t => t.date === date), ...virtualFor(date)];
+function findTask(id){
+  const t = S.tasks.find(x => x.id === id); if(t) return t;
+  const m = /^v_(.+)_(\d{4}-\d{2}-\d{2})$/.exec(id || ""); if(!m) return null;
+  return virtualFor(m[2]).find(v => v.id === id) || null;
+}
+const fmtTime = hm => { if(!hm) return ""; const [h,m] = hm.split(":").map(Number); const d = new Date(); d.setHours(h, m, 0, 0); return d.toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit"}); };
+const byTime = (a,b) => (a.time || "99:99") < (b.time || "99:99") ? -1 : (a.time || "99:99") > (b.time || "99:99") ? 1 : byOrder(a,b);
+const nowHM = () => { const d = new Date(); return pad(d.getHours()) + ":" + pad(d.getMinutes()); };
+function daysText(days){
+  const d = Array.isArray(days) ? days.slice().sort() : ALL_DAYS;
+  if(d.length === 7) return "Every day";
+  if(d.join() === "1,2,3,4,5") return "Weekdays";
+  if(d.join() === "0,6") return "Weekends";
+  return d.map(x => DOW[x]).join(", ");
+}
+/* "1pm PT", "PT at 1:30pm", "9:15 Anki" -> {title, time} */
+function parseQuick(str){
+  const conv = (h, m, ap) => {
+    h = Number(h); m = Number(m || 0);
+    if(ap){ ap = ap[0].toLowerCase(); if(h === 12) h = 0; if(ap === "p") h += 12; }
+    if(h > 23 || m > 59) return null;
+    return pad(h) + ":" + pad(m);
+  };
+  let m = /^(\d{1,2})(?::(\d{2}))?\s*(am|pm|a|p)\b\.?\s*[-–:]?\s+(.+)$/i.exec(str) || /^(\d{1,2}):(\d{2})()\s*[-–]?\s+(.+)$/.exec(str);
+  if(m){ const t = conv(m[1], m[2], m[3]); if(t) return { title:m[4].trim(), time:t }; }
+  m = /^(.+?)\s+(?:at\s+|@\s*)?(\d{1,2})(?::(\d{2}))?\s*(am|pm|a|p)\.?$/i.exec(str) || /^(.+?)\s+(?:at\s+|@\s*)(\d{1,2}):(\d{2})()$/i.exec(str);
+  if(m){ const t = conv(m[2], m[3], m[4]); if(t) return { title:m[1].trim(), time:t }; }
+  return { title:str, time:null };
+}
+const goalColor = g => (g && g.color) || "#D9CCE2";
+const byOrder = (a,b) => (a.order ?? 0) - (b.order ?? 0);
+const byDate = (a,b) => (a.date||"9999") < (b.date||"9999") ? -1 : (a.date||"9999") > (b.date||"9999") ? 1 : byOrder(a,b);
+/* GitHub mode: when the page runs on your own site, it saves to a private GitHub repo */
+const GHK = "sunpath-gh";
+function ghCfg(){ try{ return JSON.parse(localStorage.getItem(GHK) || "null"); }catch(_){ return null; } }
+const GH_MODE = /\.github\.io$/.test(location.hostname) || /[?&#]gh(&|$)/.test(location.search + location.hash) || !!ghCfg();
+const PIX = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
+const IMG = new Map(), IMG_LOADING = new Map();
+let rTimer = null;
+const soonRender = () => { clearTimeout(rTimer); rTimer = setTimeout(render, 60); };
+const blob = id => {
+  if(!id) return "";
+  if(!GH_MODE) return "/_blob/" + encodeURIComponent(id);
+  const u = IMG.get(id); if(u) return u;
+  ghImg(id).then(soonRender, () => {});
+  return PIX;
+};
+const icons = () => S.settings.icons || {};
+const editable = () => S.canWrite && !!S.assets;
+
+/* an icon slot: a picture if uploaded, otherwise a paw placeholder that invites an upload */
+function slot(src, attrs, labelText, opts = {}){
+  const cls = "ic" + (opts.cls ? " " + opts.cls : "");
+  const style = opts.c ? ` style="--c:${opts.c}"` : "";
+  if(src){
+    const img = `<img src="${esc(blob(src))}" alt="${esc(labelText)}">`;
+    return editable() && !opts.static ? `<button type="button" class="${cls}"${style} ${attrs} aria-label="Change ${esc(labelText)}">${img}</button>` : `<span class="${cls}"${style}>${img}</span>`;
+  }
+  if(editable() && !opts.static) return `<button type="button" class="${cls} empty"${style} ${attrs} aria-label="Add ${esc(labelText)}">${I.paw}<span class="plus">+</span></button>`;
+  return `<span class="${cls} empty"${style} aria-hidden="true">${I.paw}</span>`;
+}
+
+function toast(msg, withIcon){
+  const t = document.getElementById("toast");
+  const ic = withIcon && icons().done;
+  t.className = "toast" + (ic ? " pop" : " plain");
+  t.innerHTML = (ic ? `<span class="ic"><img src="${esc(blob(ic))}" alt=""></span>` : "") + `<span>${esc(msg)}</span>`;
+  t.hidden = false;
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 2600);
+}
+function errText(e){
+  const c = e && e.code;
+  if(c === "quota_exceeded") return "Storage is full. Delete some old tasks and try again.";
+  if(c === "invalid_argument") return "That change was refused. You might be viewing in read-only mode.";
+  if(c === "revoked" || c === "not_granted") return "This view can't save changes right now.";
+  return "Couldn't save. Check your connection and try again.";
+}
+
+/* one write at a time per document */
+const chains = {};
+function write(path, fn){
+  const run = () => fn().catch(e => { toast(errText(e)); });
+  chains[path] = (chains[path] || Promise.resolve()).then(run, run);
+  return chains[path];
+}
+function updTask(id, patch){
+  const t = findTask(id);
+  if(t && t.virtual){
+    const rid = "r_" + t.routineId + "_" + t.rdate;
+    const body = { title:t.title, goalId:null, date:t.date, time:t.time, done:false, star:false, order:0, routineId:t.routineId, rdate:t.rdate, createdAt:Date.now(), ...patch };
+    return write("tasks/"+rid, () => S.db.doc("tasks/"+rid).set(body));
+  }
+  return write("tasks/"+id, () => S.db.doc("tasks/"+id).update(patch));
+}
+function removeTask(id){
+  const t = findTask(id); if(!t) return;
+  if(t.routineId) return updTask(id, { skipped:true });
+  return write("tasks/"+id, () => S.db.doc("tasks/"+id).delete());
+}
+const updGoal = (id, patch) => write("goals/"+id, () => S.db.doc("goals/"+id).update(patch));
+function saveSettings(next){
+  S.settings = next;
+  return write("settings/main", () => S.db.doc("settings/main").set(next));
+}
+function setIcon(key, id){
+  const ic = { ...icons() };
+  if(id) ic[key] = id; else delete ic[key];
+  return saveSettings({ ...S.settings, icons: ic });
+}
+
+/* ---------- rendering ---------- */
+function typing(){
+  const a = document.activeElement;
+  if(a && a.id === "quick") return false;
+  return a && a.closest && a.closest("main") && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);
+}
+function render(){
+  if(typing()){ S.pending = true; return; }
+  S.pending = false;
+  document.body.classList.toggle("readonly", !S.canWrite);
+  const a = document.activeElement, q = a && a.id === "quick" ? { v:a.value, c:a.selectionStart } : null;
+  renderBg(); renderNote(); renderToday(); renderWeek(); renderGoals(); renderFoot();
+  if(q){ const n = document.getElementById("quick"); if(n){ n.value = q.v; n.focus(); try{ n.setSelectionRange(q.c, q.c); }catch(_){} } }
+}
+/* background: one image stays still; several fade into each other while slowly drifting down */
+const bgList = () => Array.isArray(S.settings.bgAssets) ? S.settings.bgAssets.filter(Boolean) : (S.settings.bgAsset ? [S.settings.bgAsset] : []);
+const BG = { key:null, list:[], idx:0, front:1, timer:null };
+const HOLD = 24000;
+const reduced = () => window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function bgShow(id){
+  const layers = [document.getElementById("bg0"), document.getElementById("bg1")];
+  const back = layers[1 - BG.front], front = layers[BG.front];
+  const i = back.querySelector("i");
+  i.classList.remove("pan"); void i.offsetWidth;
+  if(GH_MODE && !IMG.has(id)) ghImg(id).then(() => { i.style.backgroundImage = `url("${blob(id)}")`; }, () => {});
+  else i.style.backgroundImage = `url("${blob(id)}")`;
+  if(BG.list.length > 1 && !reduced()) i.classList.add("pan");
+  back.style.opacity = "1"; front.style.opacity = "0";
+  BG.front = 1 - BG.front;
+  const nxt = BG.list[(BG.idx + 1) % BG.list.length];
+  if(nxt && nxt !== id){ if(GH_MODE) ghImg(nxt).catch(() => {}); else { const im = new Image(); im.src = blob(nxt); } }
+}
+function renderBg(){
+  const el = document.getElementById("bgimg"), list = bgList();
+  el.classList.toggle("on", list.length > 0);
+  document.body.classList.toggle("has-bg", list.length > 0);
+  el.style.setProperty("--dim", String(S.settings.bgDim ?? 0.45));
+  const key = list.join(",");
+  if(key === BG.key) return;
+  BG.key = key; BG.list = list; BG.idx = Math.floor(Math.random() * list.length);
+  clearInterval(BG.timer); BG.timer = null;
+  if(!list.length) return;
+  bgShow(list[BG.idx]);
+  if(list.length > 1) BG.timer = setInterval(() => { BG.idx = (BG.idx + 1) % BG.list.length; bgShow(BG.list[BG.idx]); }, HOLD);
+}
+
+function secHead(key, id, title, small){
+  return `<div class="sec-h"><h2 id="${id}">${esc(title)}</h2>${small ? `<small>${esc(small)}</small>` : ""}</div>`;
+}
+/* a cutout sticker perched on a section's corner: no frame, just the image and a sticker shadow */
+function perch(key){
+  const s = SLOTS.find(x => x.key === key), src = icons()[key];
+  if(src) return editable()
+    ? `<button type="button" class="perch" data-action="slot" data-slot="${key}" aria-label="Change ${esc(s.name)}"><img src="${esc(blob(src))}" alt=""></button>`
+    : `<span class="perch" aria-hidden="true"><img src="${esc(blob(src))}" alt=""></span>`;
+  return editable() ? `<button type="button" class="perch empty" data-action="slot" data-slot="${key}" aria-label="Add ${esc(s.name)}">${I.paw}<span class="plus">+</span></button>` : "";
+}
+
+function renderBanner(){
+  const el = document.getElementById("banner");
+  const now = new Date(), h = now.getHours();
+  const part = h < 12 ? "Morning" : h < 18 ? "Afternoon" : "Evening";
+  const open = S.tasks.filter(t => t.date === today() && !t.done).length;
+  const line = !S.got.tasks ? part + ", Sol." :
+    open === 0 ? part + ", Sol. Nothing left on today." :
+    part + ", Sol. " + open + (open === 1 ? " thing" : " things") + " on today.";
+  el.innerHTML = `
+    ${slot(icons().me, `data-action="slot" data-slot="me"`, "your icon", {c:"var(--pink)"})}
+    <div class="say${editable() ? " edit" : ""}">
+      ${editable() ? `<button class="icons-btn" data-action="customize" aria-label="Icons and background" title="Icons and background">${I.palette}</button>` : ""}
+      <p class="date-line">${esc(now.toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"}))}</p>
+      <h1 class="greet">${esc(line)}</h1>
+    </div>`;
+}
+
+function renderFoot(){
+  document.getElementById("foot").innerHTML = (editable() ? `<button class="pill" data-action="customize">${I.palette}Icons & background</button>` : "") +
+    (S.canWrite ? `<button class="pill" data-action="routines">${I.repeat}Daily routines</button>` : "") +
+    (GH_MODE && GH.cfg ? `<button class="pill" data-action="gh-settings"><span id="sync">${esc(GH.status || "Synced")}</span></button>` : "");
+}
+function renderNote(){
+  if(GH_MODE && !GH.cfg) return;
+  document.getElementById("note").innerHTML = S.note ? `<p class="note">${esc(S.note)}</p>` : "";
+}
+
+function marker(g){
+  if(!g) return "";
+  return g.icon ? `<span class="mark">${slot(g.icon, "", g.title, {cls:"tiny", static:true})}</span>` : `<span class="dot" title="${esc(g ? g.title : "")}"></span>`;
+}
+function taskRow(t, o = {}){
+  const g = goalById(t.goalId);
+  const timeChip = o.time && t.time ? `<button class="tchip" data-action="edit" data-id="${esc(t.id)}">${esc(fmtTime(t.time))}</button>` : "";
+  const late = t.date && t.date < today() && !t.done;
+  return `<li class="task${t.done ? " done" : ""}" style="--goal:${esc(goalColor(g))}" data-id="${esc(t.id)}" ${S.canWrite ? 'draggable="true"' : ""}>
+    ${timeChip}
+    <button class="check" data-write data-action="toggle" data-id="${esc(t.id)}" aria-label="${t.done ? "Mark not done" : "Mark done"}: ${esc(t.title)}">${I.check}</button>
+    ${o.mark ? marker(g) : ""}
+    <button class="ttitle" data-action="edit" data-id="${esc(t.id)}">${t.star ? `<span class="star" aria-label="Today's one thing">★</span> ` : ""}${esc(t.title)}${t.routineId ? ` <span class="rmark" title="Daily routine">${I.repeat}</span>` : ""}${!o.time && t.time && o.showTime ? ` <span class="tsmall">${esc(fmtTime(t.time))}</span>` : ""}</button>
+    ${o.today ? `<button class="mini" data-write data-action="to-today" data-id="${esc(t.id)}">Today</button>` : ""}
+    ${o.when ? `<button class="when${late ? " late" : ""}" data-action="edit" data-id="${esc(t.id)}">${esc(label(t.date))}</button>` : ""}
+  </li>`;
+}
+
+function goalChip(g){
+  if(!g) return "";
+  return `<span class="chip${g.icon ? "" : " noicon"}" style="--goal:${esc(goalColor(g))}">${g.icon ? slot(g.icon, "", g.title, {static:true}) : ""}${esc(g.title)}</span>`;
+}
+
+function renderToday(){
+  const el = document.getElementById("today");
+  const dateText = new Date().toLocaleDateString(undefined,{weekday:"long",month:"long",day:"numeric"});
+  const head = secHead("today", "today-h", "Today", dateText);
+  if(!S.got.tasks){ el.innerHTML = head + `<div class="card sticker"><p class="muted">Loading your day…</p></div>`; return; }
+  const list = onDay(today()).sort(byOrder);
+  const open = list.filter(t => !t.done);
+  const one = open.find(t => t.star) || open.find(t => t.goalId) || open.find(t => !t.routineId) || null;
+  const doneToday = list.filter(t => t.done && !t.time);
+  const late = live().filter(t => t.date && t.date < today() && !t.done && !t.routineId).sort(byDate);
+  const timed = list.filter(t => t.time).sort(byTime);
+  const rest = open.filter(t => t !== one && !t.time);
+  const bigOpen = open.filter(t => !t.routineId);
+  const buddyKey = one ? "one" : (list.length ? "done" : "one");
+  const buddy = slot(icons()[buddyKey] || icons().one, `data-action="slot" data-slot="${buddyKey}"`, buddyKey === "done" ? "done buddy" : "today buddy", {c:"var(--sun)"});
+  let bubble;
+  if(one){
+    const g = goalById(one.goalId);
+    bubble = `<article class="one">
+      <p class="eyebrow">Today's one thing${one.time ? " · " + esc(fmtTime(one.time)) : ""}</p>
+      <h3>${esc(one.title)}</h3>
+      <p class="meta">${goalChip(g)}${bigOpen.length > 1 ? `<span>+${bigOpen.length-1} more today</span>` : ""}</p>
+      <div class="actions" data-write>
+        <button class="btn primary" data-action="toggle" data-id="${esc(one.id)}">${I.check}Done</button>
+        <button class="btn" data-action="tomorrow" data-id="${esc(one.id)}">${I.arrow}Tomorrow</button>
+        <button class="btn" data-action="edit" data-id="${esc(one.id)}">Move</button>
+      </div>
+    </article>`;
+  } else if(list.some(t => t.done && !t.routineId)){
+    bubble = `<article class="one"><p class="eyebrow">Today's one thing</p><h3>Done for today!</h3>
+      <p class="meta empty">The big stuff is finished. The rest of the day is yours.</p></article>`;
+  } else {
+    bubble = `<article class="one"><p class="eyebrow">Today's one thing</p><h3>Nothing big planned today.</h3>
+      <p class="meta empty">${late.length ? "Pull something forward from earlier, or add one." : "Add one, or enjoy the open day."}</p>
+      <div class="actions" data-write><button class="btn primary" data-action="add" data-date="${today()}">${I.plus}Add a task for today</button></div></article>`;
+  }
+  const quick = `<form class="quick sticker" data-write data-form="quick">
+      <span class="quick-plus" aria-hidden="true">${I.plus}</span>
+      <input id="quick" placeholder="Quick add… try “1pm PT”" autocomplete="off" enterkeyhint="done" aria-label="Quick add a task for today. Start or end with a time to put it on the timeline.">
+      <button class="btn primary" type="submit">Add</button>
+    </form>`;
+  let tl = "";
+  if(timed.length){
+    const now = nowHM(); let rows = "", placed = false;
+    for(const t of timed){
+      if(!placed && t.time > now){ rows += `<li class="now" aria-label="Now"><span>Now · ${esc(fmtTime(now))}</span></li>`; placed = true; }
+      rows += taskRow(t, { time:true, mark:true }).replace('<li class="task', `<li class="tl task${t.time < now && !t.done ? " past" : ""}`);
+    }
+    if(!placed) rows += `<li class="now" aria-label="Now"><span>Now · ${esc(fmtTime(now))}</span></li>`;
+    tl = `<div class="card sticker timeline">
+      <div class="tl-h"><span class="subhead" style="margin:0">${I.clock} Timeline</span><button class="mini ghosty" data-write data-action="add" data-date="${today()}" data-time="1">+ Add at a time</button></div>
+      <ul class="tasks tl-list">${rows}</ul></div>`;
+  }
+  let extra = "";
+  if(rest.length || doneToday.length || late.length){
+    extra = `<div class="card sticker">
+      ${rest.length ? `<p class="subhead">Also today</p><ul class="tasks">${rest.map(t => taskRow(t,{mark:true})).join("")}</ul>` : ""}
+      ${late.length ? `<p class="subhead">From earlier</p><ul class="tasks">${late.map(t => taskRow(t,{mark:true,when:true,today:true})).join("")}</ul>` : ""}
+      ${doneToday.length ? `<p class="subhead">Finished today</p><ul class="tasks">${doneToday.map(t => taskRow(t,{mark:true})).join("")}</ul>` : ""}
+    </div>`;
+  }
+  el.innerHTML = head + `<div class="col" style="gap:16px"><div class="one-row">${buddy}${bubble}</div>${quick}${tl}${extra}</div>` + perch("today");
+}
+
+function renderWeek(){
+  const el = document.getElementById("week");
+  if(!S.got.tasks){ el.innerHTML = ""; return; }
+  const base = parse(today());
+  let cols = "";
+  for(let i = 0; i < 7; i++){
+    const d = addDays(base, i), key = ymd(d);
+    const all = onDay(key), ts = all.filter(t => !t.routineId).sort((a,b) => (a.done - b.done) || byTime(a,b));
+    const rcount = all.filter(t => t.routineId).length, rdone = all.filter(t => t.routineId && t.done).length;
+    cols += `<div class="day sticker${OFF_DAYS.has(d.getDay()) ? " off" : ""}" data-drop="${key}">
+      <div class="day-h"><b>${i === 0 ? "Today" : i === 1 ? "Tomorrow" : esc(wk(d))}</b><span>${esc(d.toLocaleDateString(undefined,{month:"short",day:"numeric"}))}</span></div>
+      ${ts.length ? `<ul class="tasks">${ts.map(t => taskRow(t,{showTime:true})).join("")}</ul>` : ""}
+      ${rcount ? `<button class="rcount" data-action="routines">${I.repeat}${rdone ? `${rdone}/${rcount}` : rcount} routine${rcount === 1 ? "" : "s"}</button>` : ""}
+      <button class="add-day" data-write data-action="add" data-date="${key}" aria-label="Add a task on ${esc(label(key))}">+ Add</button>
+    </div>`;
+  }
+  el.innerHTML = secHead("week", "week-h", "This week", S.canWrite ? "Drag tasks between days, or tap one to move it" : "") +
+    `<div class="week-scroll"><div class="week">${cols}</div></div>` + perch("week");
+}
+
+function renderGoals(){
+  const el = document.getElementById("goals");
+  const head = secHead("goals", "goals-h", "Goals", S.goals.length > 3 ? "Fewer goals tend to go further" : "");
+  if(!S.got.goals){ el.innerHTML = head + `<div class="card sticker"><p class="muted">Loading your goals…</p></div>`; return; }
+  const goals = S.goals.slice().sort(byOrder);
+  const cards = goals.map(g => {
+    const ts = S.tasks.filter(t => t.goalId === g.id).sort(byDate);
+    const done = ts.filter(t => t.done).length;
+    const next = ts.find(t => !t.done);
+    const n = Math.max(ts.length, 1);
+    const cells = ts.length ? ts.slice().sort((a,b) => (b.done - a.done) || byDate(a,b))
+      .map(t => `<span class="cell${t.done ? " lit" : ""}${S.flash.has(t.id) ? " flash" : ""}"></span>`).join("")
+      : `<span class="cell"></span>`;
+    const m = g.metric;
+    let metric = "";
+    if(m && m.target){
+      const floor = Number(m.floor) || 0, cur = Number(m.current);
+      const has = m.current !== null && m.current !== undefined && m.current !== "" && !isNaN(cur);
+      const pct = has ? Math.max(0, Math.min(100, (cur - floor) / (m.target - floor) * 100)) : 0;
+      const gap = has ? m.target - cur : null;
+      metric = `<div class="metric">
+        <span class="num">${has ? esc(cur) : "—"}</span>
+        <span class="lab">${esc(m.label || "Latest")} · goal ${esc(m.target)}${has ? (gap > 0 ? ` · ${esc(gap)} to go` : " · goal reached!") : ` · <button class="mini" data-write data-action="goal-menu" data-id="${esc(g.id)}">Add score</button>`}</span>
+        <span class="gauge" role="img" aria-label="${has ? Math.round(pct) + "% of the way to " + esc(m.target) : "No score yet"}"><i style="width:${pct}%"></i></span>
+      </div>`;
+    }
+    const open = S.openRoad.has(g.id);
+    return `<article class="goal sticker" style="--goal:${esc(goalColor(g))}">
+      <div class="ghead" style="${g.headerAsset ? `background-image:url(&quot;${blob(g.headerAsset)}&quot;)` : ""}">
+        ${editable() ? `<button type="button" class="pill" data-action="art" data-target="goal" data-id="${esc(g.id)}">${I.image}${g.headerAsset ? "Change art" : "Add header art"}</button>` : ""}
+      </div>
+      <div class="gbody">
+        <div class="gtop">
+          ${slot(g.icon, `data-action="art" data-target="goal-icon" data-id="${esc(g.id)}"`, g.title + " icon", {c:goalColor(g)})}
+          <h3>${esc(g.title)}</h3>
+          <button class="icon-btn" data-write data-action="goal-menu" data-id="${esc(g.id)}" aria-label="Edit ${esc(g.title)}">${I.dots}</button>
+        </div>
+        ${g.note ? `<p class="muted">${esc(g.note)}</p>` : ""}
+        ${metric}
+        <div class="cells" style="--n:${n}" role="img" aria-label="${done} of ${ts.length} steps done">${cells}</div>
+        <p class="gstat"><span><b>${done}</b> of <b>${ts.length}</b> steps done</span>${next ? `<span>Next: ${esc(next.title)} · ${esc(label(next.date))}</span>` : ts.length ? "<span>All steps done!</span>" : ""}</p>
+        <details class="roadmap" data-goal="${esc(g.id)}" ${open ? "open" : ""}>
+          <summary>${I.chev}Roadmap</summary>
+          ${ts.length ? `<ul class="tasks">${ts.map(t => taskRow(t,{when:true})).join("")}</ul>` : `<p class="muted" style="margin-top:8px">No steps yet.</p>`}
+          <form class="addrow" data-write data-form="add-step" data-goal="${esc(g.id)}">
+            <input id="add-${esc(g.id)}" name="title" placeholder="Add a step" autocomplete="off" aria-label="Add a step to ${esc(g.title)}">
+            <button class="btn" type="submit">${I.plus}Add</button>
+          </form>
+        </details>
+      </div>
+    </article>`;
+  }).join("");
+  el.innerHTML = head + `<div class="col" style="gap:22px">${cards || `<div class="card sticker"><p class="muted">No goals yet.</p></div>`}
+    <button class="add-goal" data-write data-action="new-goal">+ Add a goal</button></div>` + perch("goals");
+}
+
+/* ---------- sheet ---------- */
+const sheetEl = document.getElementById("sheet"), backdrop = document.getElementById("backdrop");
+let SH = null;
+function showSheet(html, focusSel){
+  sheetEl.innerHTML = html; backdrop.hidden = false;
+  const f = sheetEl.querySelector(focusSel || "textarea,input,button"); f && f.focus();
+}
+function closeSheet(){ backdrop.hidden = true; SH = null; if(typeof endCrop === "function") endCrop(); if(S.pending) render(); }
+function dateChips(selected, action){
+  const base = parse(today()); const opts = [];
+  for(let i = 0; i < 8; i++) opts.push(ymd(addDays(base,i)));
+  return `<div class="chips">${opts.map(k => `<button type="button" class="dchip" data-action="${action}" data-date="${k}" aria-pressed="${selected === k}">${esc(label(k))}</button>`).join("")}
+    <button type="button" class="dchip" data-action="${action}" data-date="" aria-pressed="${selected === null}">No date</button></div>`;
+}
+function goalSelect(sel){
+  return `<select id="sh-goal"><option value="" ${!sel ? "selected" : ""}>No goal (just a task)</option>${S.goals.slice().sort(byOrder).map(g => `<option value="${esc(g.id)}" ${g.id === sel ? "selected" : ""}>${esc(g.title)}</option>`).join("")}</select>`;
+}
+function openTaskSheet(id){
+  const t = findTask(id); if(!t) return;
+  SH = { mode:"task", id, armed:false };
+  if(!S.canWrite){
+    showSheet(`<h4 id="sheet-h">${esc(t.title)}</h4><p class="muted">${esc(label(t.date))} · ${esc((goalById(t.goalId)||{}).title || "")}</p><div class="sheet-foot"><span></span><button class="btn" data-action="close">Close</button></div>`);
+    return;
+  }
+  showSheet(`<h4 id="sheet-h">Edit task</h4>
+    <div class="field"><label for="sh-title">Task</label><textarea id="sh-title" rows="2">${esc(t.title)}</textarea></div>
+    <div class="field"><span class="flabel">Move to (tap to move and close)</span>${dateChips(t.date || null, "sheet-move")}</div>
+    <div class="field"><label for="sh-date">Or pick a date</label><input type="date" id="sh-date" value="${esc(t.date || "")}"></div>
+    <div class="field"><label for="sh-time">Time (optional, puts it on the timeline)</label><div style="display:flex;gap:8px"><input type="time" id="sh-time" value="${esc(t.time || "")}"><button type="button" class="btn ghost" data-action="clear-time">Clear</button></div></div>
+    ${t.routineId ? `<p class="muted" style="margin-bottom:14px">${I.repeat} Part of a daily routine. Changes here only affect this day. <button type="button" class="mini" data-action="routine-edit" data-id="${esc(t.routineId)}">Edit the routine</button></p>`
+      : `<div class="field"><label for="sh-goal">Goal</label>${goalSelect(t.goalId)}</div>
+    <label class="toggle"><input type="checkbox" id="sh-star" ${t.star ? "checked" : ""}> Make it the one thing for its day</label>`}
+    <div class="sheet-foot">
+      <button class="btn danger" data-action="sheet-delete">${t.routineId ? "Skip this day" : "Delete"}</button>
+      <span style="display:flex;gap:8px"><button class="btn ghost" data-action="close">Cancel</button><button class="btn primary" data-action="sheet-save">Save</button></span>
+    </div>`);
+}
+function openAddSheet(date, withTime){
+  SH = { mode:"add", date: date || null };
+  const g = null;
+  showSheet(`<h4 id="sheet-h">Add a task</h4>
+    <div class="field"><label for="sh-title">Task</label><textarea id="sh-title" rows="2" placeholder="What's the step?"></textarea></div>
+    <div class="field"><label for="sh-goal">Goal</label>${goalSelect(g)}</div>
+    <div class="field"><span class="flabel">When</span>${dateChips(SH.date, "sheet-pick")}</div>
+    <div class="field"><label for="sh-time">Time (optional)</label><input type="time" id="sh-time"></div>
+    <div class="sheet-foot"><span></span><span style="display:flex;gap:8px"><button class="btn ghost" data-action="close">Cancel</button><button class="btn primary" data-action="sheet-add">Add</button></span></div>`, withTime ? "#sh-time" : "textarea");
+}
+function openGoalSheet(id){
+  const g = id ? goalById(id) : null;
+  SH = { mode:"goal", id: id || null, armed:false, color: g ? goalColor(g) : GOAL_COLORS[S.goals.length % GOAL_COLORS.length] };
+  const m = (g && g.metric) || {};
+  showSheet(`<h4 id="sheet-h">${g ? "Edit goal" : "New goal"}</h4>
+    <div class="field"><label for="g-title">Goal</label><input id="g-title" value="${esc(g ? g.title : "")}" placeholder="e.g. Pass the JLPT N2"></div>
+    <div class="field"><label for="g-note">Why it matters, or the finish line (optional)</label><textarea id="g-note" rows="2">${esc(g ? g.note || "" : "")}</textarea></div>
+    <div class="field"><span class="flabel">Color</span><div class="chips">${GOAL_COLORS.map(c => `<button type="button" class="dchip" data-action="pick-color" data-color="${c}" aria-pressed="${SH.color === c}" style="background:${c};color:#3B2343" aria-label="Color ${c}">${SH.color === c ? "✓" : "&nbsp;&nbsp;"}</button>`).join("")}</div></div>
+    <div class="field"><span class="flabel">Score to track (optional)</span>
+      <div class="row2">
+        <input id="g-mlabel" placeholder="Label, e.g. SAT score" value="${esc(m.label || "")}" aria-label="Score label">
+        <input id="g-mtarget" type="number" inputmode="numeric" placeholder="Target, e.g. 1350" value="${esc(m.target ?? "")}" aria-label="Target score">
+        <input id="g-mcur" type="number" inputmode="numeric" placeholder="Latest score" value="${esc(m.current ?? "")}" aria-label="Latest score">
+        <input id="g-mfloor" type="number" inputmode="numeric" placeholder="Lowest possible, e.g. 400" value="${esc(m.floor ?? "")}" aria-label="Lowest possible score">
+      </div></div>
+    ${g && S.assets && (g.icon || g.headerAsset) ? `<div class="field" style="flex-direction:row;gap:8px;flex-wrap:wrap">
+      ${g.icon ? `<button class="btn" data-action="goal-icon-remove" data-id="${esc(g.id)}">Remove goal icon</button>` : ""}
+      ${g.headerAsset ? `<button class="btn" data-action="art-remove" data-id="${esc(g.id)}">Remove header art</button>` : ""}</div>` : ""}
+    <div class="sheet-foot">
+      ${g ? `<button class="btn danger" data-action="goal-delete">Delete goal</button>` : "<span></span>"}
+      <span style="display:flex;gap:8px"><button class="btn ghost" data-action="close">Cancel</button><button class="btn primary" data-action="goal-save">Save</button></span>
+    </div>`, "#g-title");
+}
+function openRoutines(){
+  SH = { mode:"routines" };
+  const rs = S.routines.slice().sort(byTime);
+  showSheet(`<h4 id="sheet-h">Daily routines</h4>
+    <p class="muted" style="margin-bottom:12px">Small things that repeat, like vitamins, PT or Anki. They show up on their days automatically, and timed ones go on the timeline.</p>
+    <div class="slots">${rs.length ? rs.map(r => `<button type="button" class="slot rrow" data-action="routine-edit" data-id="${esc(r.id)}">
+        <span class="rtime">${r.time ? esc(fmtTime(r.time)) : "Any time"}</span>
+        <span class="slot-t"><b>${esc(r.title)}</b><span>${esc(daysText(r.days))}</span></span></button>`).join("") : `<p class="muted">No routines yet.</p>`}</div>
+    <div class="sheet-foot"><button class="btn" data-action="routine-edit">${I.plus}Add a routine</button><button class="btn primary" data-action="close">Done</button></div>`, ".btn");
+}
+function openRoutine(id){
+  const r = id ? S.routines.find(x => x.id === id) : null;
+  SH = { mode:"routine", id: r ? r.id : null, days: r && Array.isArray(r.days) ? r.days.slice() : ALL_DAYS.slice(), armed:false };
+  showSheet(`<h4 id="sheet-h">${r ? "Edit routine" : "New routine"}</h4>
+    <div class="field"><label for="r-title">What</label><input id="r-title" value="${esc(r ? r.title : "")}" placeholder="e.g. Take vitamins"></div>
+    <div class="field"><label for="r-time">Time (optional)</label><input type="time" id="r-time" value="${esc(r && r.time || "")}"></div>
+    <div class="field"><span class="flabel">Days</span>
+      <div class="chips">${ALL_DAYS.map(d => `<button type="button" class="dchip" data-action="routine-day" data-day="${d}" aria-pressed="${SH.days.includes(d)}">${DOW[d]}</button>`).join("")}</div>
+      <div class="chips"><button type="button" class="dchip" data-action="routine-preset" data-days="0,1,2,3,4,5,6">Every day</button><button type="button" class="dchip" data-action="routine-preset" data-days="0,4,5,6">Days off</button><button type="button" class="dchip" data-action="routine-preset" data-days="1,2,3">Work days</button></div></div>
+    <div class="sheet-foot">${r ? `<button class="btn danger" data-action="routine-delete">Delete</button>` : "<span></span>"}
+      <span style="display:flex;gap:8px"><button class="btn ghost" data-action="routines">Back</button><button class="btn primary" data-action="routine-save">Save</button></span></div>`, "#r-title");
+}
+function saveRoutine(){
+  const title = document.getElementById("r-title").value.trim();
+  if(!title){ document.getElementById("r-title").focus(); return; }
+  const time = document.getElementById("r-time").value || null;
+  const days = SH.days.slice().sort();
+  if(!days.length){ toast("Pick at least one day."); return; }
+  if(SH.id){ const rid = SH.id; write("routines/"+rid, () => S.db.doc("routines/"+rid).update({ title, time, days })); }
+  else { const ref = S.db.collection("routines").doc(); write("routines/"+ref.id, () => ref.set({ title, time, days, createdAt:Date.now() })); }
+  toast("Routine saved");
+  openRoutines();
+}
+function openCustomize(){
+  SH = { mode:"customize" };
+  const ic = icons();
+  const rows = SLOTS.map(s => `<div class="slot">
+      ${slot(ic[s.key], "", s.name, {static:true, c:s.c})}
+      <div class="slot-t"><b>${esc(s.name)}</b><span>${esc(s.hint)}</span></div>
+      <div class="btns"><button type="button" class="btn" data-action="slot" data-slot="${s.key}">${ic[s.key] ? "Change" : "Upload"}</button>
+      ${ic[s.key] ? `<button class="btn ghost" data-action="slot-remove" data-slot="${s.key}">Remove</button>` : ""}</div>
+    </div>`).join("");
+  const bgs = bgList();
+  showSheet(`<h4 id="sheet-h">Your icons and background</h4>
+    <p class="muted" style="margin-bottom:12px">Square images look best for icons. Goal icons and header art are on each goal card.</p>
+    <div class="slots">${rows}
+      <div class="slot" style="flex-wrap:wrap"><span class="ic${bgs.length ? "" : " empty"}" style="--c:var(--sky);border-radius:14px">${bgs.length ? `<img src="${esc(blob(bgs[0]))}" alt="Background">` : I.image}</span>
+        <div class="slot-t"><b>Background</b><span>${bgs.length > 1 ? `${bgs.length} images fade into each other while slowly drifting down.` : "Add one to keep it still, or several to slowly fade between them. Tall images suit phones."}</span></div>
+        <div class="btns"><button class="btn" data-action="art" data-target="bg">${bgs.length ? "Add image" : "Upload"}</button></div>
+        ${bgs.length ? `<div class="thumbs">${bgs.map((id,i) => `<span class="thumb"><img src="${esc(blob(id))}" alt="Background ${i+1}"><b>${i+1}</b><button type="button" data-action="bg-del" data-i="${i}" aria-label="Remove background ${i+1}">✕</button></span>`).join("")}</div>
+        <div class="dims" style="flex-basis:100%"><span class="flabel" style="align-self:center;margin-right:4px">Fade it</span>${[["Light",0.2],["Medium",0.45],["Strong",0.7]].map(([n,v]) => `<button type="button" class="dchip" data-action="bg-dim" data-dim="${v}" aria-pressed="${(S.settings.bgDim ?? 0.45) === v}">${n}</button>`).join("")}</div>` : ""}</div>
+    </div>
+    <div class="slot"><span class="ic empty" style="--c:var(--mint)" aria-hidden="true">${I.note}</span>
+      <div class="slot-t"><b>Sounds</b><span>A little chime when you check things off</span></div>
+      <div class="btns">${[["On",true],["Off",false]].map(([n,v]) => `<button type="button" class="dchip" data-action="sound" data-on="${v}" aria-pressed="${(S.settings.sound !== false) === v}">${n}</button>`).join("")}</div></div>
+    <div class="sheet-foot"><span></span><button class="btn primary" data-action="close">Done</button></div>`, ".btn");
+}
+
+/* ---------- actions ---------- */
+function flash(id){ S.flash.add(id); setTimeout(() => { S.flash.delete(id); }, 1200); }
+const CHEERS = ["Nice!","Done!","One step closer.","Got it!","Look at you go."];
+/* sounds: a woodblock "tok" plus a bright two-note chime, in the spirit of a rhythm game's
+   on-beat hit; finishing the one thing or the last task of the day gets a little fanfare */
+let AC = null;
+function audio(){
+  if(S.settings.sound === false) return null;
+  try{
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    if(AC.state === "suspended") AC.resume();
+  }catch(_){ AC = null; }
+  return AC;
+}
+function tone(c, t, f, dur, type, vol){
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(vol, t + 0.006);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(c.destination);
+  o.start(t); o.stop(t + dur + 0.03);
+}
+function tok(c, t, freq, vol){
+  const n = Math.floor(c.sampleRate * 0.05), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+  for(let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 4);
+  const src = c.createBufferSource(), bp = c.createBiquadFilter(), g = c.createGain();
+  src.buffer = buf; bp.type = "bandpass"; bp.frequency.value = freq || 1900; bp.Q.value = 5; g.gain.value = vol || 0.6;
+  src.connect(bp); bp.connect(g); g.connect(c.destination); src.start(t);
+  tone(c, t, (freq || 1900) / 2.2, 0.05, "sine", 0.12);
+}
+function playDone(big){
+  const c = audio(); if(!c) return;
+  const t = c.currentTime + 0.01;
+  tok(c, t);
+  if(!big){
+    tone(c, t, 1046.5, 0.09, "square", 0.05);
+    tone(c, t + 0.08, 1568, 0.26, "triangle", 0.2);
+    tone(c, t + 0.08, 3136, 0.2, "sine", 0.04);
+  } else {
+    [1046.5, 1318.5, 1568].forEach((f, i) => { tone(c, t + i * 0.075, f, 0.12, "square", 0.045); tone(c, t + i * 0.075, f, 0.16, "triangle", 0.13); tok(c, t + i * 0.075, 2200, 0.25); });
+    tone(c, t + 0.24, 2093, 0.55, "triangle", 0.2);
+    tone(c, t + 0.24, 4186, 0.45, "sine", 0.05);
+    tok(c, t + 0.24, 1500, 0.7);
+  }
+}
+function playTick(){ const c = audio(); if(!c) return; const t = c.currentTime + 0.01; tok(c, t, 2600, 0.35); tone(c, t, 1760, 0.07, "triangle", 0.08); }
+function toggle(id){
+  const t = findTask(id); if(!t) return;
+  const done = !t.done;
+  if(done){
+    const openToday = onDay(today()).filter(x => !x.done);
+    const ones = openToday.find(x => x.star) || openToday.find(x => x.goalId) || openToday.find(x => !x.routineId);
+    playDone((ones && ones.id === id) || (t.date === today() && openToday.length === 1 && openToday[0].id === id));
+    flash(id); toast(CHEERS[Math.floor(Math.random()*CHEERS.length)], true);
+  }
+  updTask(id, { done, doneAt: done ? Date.now() : null });
+}
+async function clearOtherStars(id, date){
+  for(const t of S.tasks.filter(x => x.star && x.id !== id && (x.date || null) === (date || null))){
+    await updTask(t.id, { star:false });
+  }
+}
+function moveTo(id, date){
+  const patch = { date: date || null, order: Date.now() };
+  const t = findTask(id);
+  if(t && t.star) patch.star = false;
+  updTask(id, patch);
+  toast(date ? "Moved to " + label(date) : "Moved to no date");
+}
+async function saveTaskSheet(dateOverride){
+  const id = SH.id, t = findTask(id); if(!t) return closeSheet();
+  const title = document.getElementById("sh-title").value.trim() || t.title;
+  const picked = document.getElementById("sh-date").value || null;
+  const date = dateOverride !== undefined ? dateOverride : picked;
+  const gsel = document.getElementById("sh-goal"), ssel = document.getElementById("sh-star");
+  const goalId = gsel ? (gsel.value || null) : (t.goalId || null);
+  const star = ssel ? ssel.checked : !!t.star;
+  const time = document.getElementById("sh-time").value || null;
+  const patch = {};
+  if(time !== (t.time || null)) patch.time = time;
+  if(title !== t.title) patch.title = title;
+  if(goalId !== (t.goalId || null)) patch.goalId = goalId;
+  if((date || null) !== (t.date || null)){ patch.date = date || null; patch.order = Date.now(); }
+  if(!!star !== !!t.star) patch.star = star;
+  closeSheet();
+  if(star) await clearOtherStars(id, date);
+  if(Object.keys(patch).length) updTask(id, patch);
+}
+function addTask(title, goalId, date, time){
+  if(!title) return;
+  const ref = S.db.collection("tasks").doc();
+  write("tasks/"+ref.id, () => ref.set({ title, goalId: goalId || null, time: time || null, date: date || null, done:false, star:false, order: Date.now(), createdAt: Date.now() }));
+}
+function saveGoal(){
+  const title = document.getElementById("g-title").value.trim();
+  if(!title){ document.getElementById("g-title").focus(); return; }
+  const note = document.getElementById("g-note").value.trim();
+  const num = id => { const v = document.getElementById(id).value; return v === "" ? null : Number(v); };
+  const mlabel = document.getElementById("g-mlabel").value.trim(), target = num("g-mtarget");
+  const metric = target ? { label: mlabel || "Score", target, current: num("g-mcur"), floor: num("g-mfloor") } : null;
+  const id = SH.id, color = SH.color;
+  closeSheet();
+  if(id){
+    updGoal(id, { title, note, metric, color });
+  } else {
+    const ref = S.db.collection("goals").doc();
+    const order = S.goals.reduce((m,g) => Math.max(m, g.order || 0), 0) + 1;
+    write("goals/"+ref.id, () => ref.set({ title, note, metric, order, color, icon:null, headerAsset:null, createdAt: Date.now() }));
+  }
+}
+async function deleteGoal(id){
+  closeSheet();
+  for(const t of S.tasks.filter(x => x.goalId === id)) await write("tasks/"+t.id, () => S.db.doc("tasks/"+t.id).delete());
+  write("goals/"+id, () => S.db.doc("goals/"+id).delete());
+  toast("Goal deleted");
+}
+
+/* uploads: a small panel with a visible, native file picker, drag-and-drop and paste,
+   then an optional crop step (drag to move, pinch or slider to zoom) */
+const TYPES = { png:"image/png", jpg:"image/jpeg", jpeg:"image/jpeg", gif:"image/gif", webp:"image/webp", svg:"image/svg+xml" };
+function targetName(t){
+  if(t.kind === "slot"){ if(t.key === "me") return "Your icon"; const s = SLOTS.find(x => x.key === t.key); return s ? s.name + " icon" : "Icon"; }
+  if(t.kind === "goal" || t.kind === "goal-icon"){ const g = goalById(t.id); return (g ? g.title + " " : "") + (t.kind === "goal" ? "header art" : "icon"); }
+  if(t.kind === "bg") return "Add a background image";
+  return "Header art";
+}
+function currentAsset(t){
+  if(t.kind === "banner") return S.settings.bannerAsset;
+  if(t.kind === "bg") return null;
+  if(t.kind === "slot") return icons()[t.key];
+  const g = goalById(t.id); if(!g) return null;
+  return t.kind === "goal" ? g.headerAsset : g.icon;
+}
+function applyAsset(t, id){
+  if(t.kind === "banner") return saveSettings({ ...S.settings, bannerAsset: id });
+  if(t.kind === "bg") return saveSettings({ ...S.settings, bgAsset:null, bgAssets: id ? [...bgList(), id] : bgList() });
+  if(t.kind === "slot") return setIcon(t.key, id);
+  if(t.kind === "goal") return updGoal(t.id, { headerAsset: id });
+  return updGoal(t.id, { icon: id });
+}
+const isRound = t => t.kind === "goal-icon" || (t.kind === "slot" && ["me","one","done"].includes(t.key));
+const ASPECTS = { bg:[["Phone",9/16],["Square",1],["Wide",16/9]] };
+function defaultAspect(t){ return isRound(t) ? 1 : t.kind === "bg" ? 9/16 : 3; }
+function fileType(f){
+  const ext = (String(f.name || "").split(".").pop() || "").toLowerCase();
+  return Object.values(TYPES).includes(f.type) ? f.type : TYPES[ext];
+}
+function pickFile(target){
+  if(!S.assets){ toast("Uploads aren't available in this view."); return; }
+  const back = !!(SH && SH.mode === "customize");
+  endCrop();
+  SH = { mode:"upload", target, back, busy:false };
+  const cur = currentAsset(target);
+  const wide = target.kind === "banner" || target.kind === "goal" || target.kind === "bg";
+  showSheet(`<h4 id="sheet-h">${esc(targetName(target))}</h4>
+    ${cur ? `<div class="up-prev${wide ? " wide" : ""}"><img src="${esc(blob(cur))}" alt="Current image"></div>` : ""}
+    <div class="drop" id="drop">
+      <label class="flabel" for="up-input">Choose an image</label>
+      <input type="file" id="up-input" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml">
+      <p class="muted">Or drag an image onto this box, or paste one. You can crop it next.</p>
+      <p class="up-status" id="up-status" aria-live="polite"></p>
+    </div>
+    <div class="sheet-foot" id="up-foot">${cur ? `<button class="btn ghost" data-action="up-remove">Remove current</button>` : "<span></span>"}<button class="btn" data-action="up-back">${back ? "Back" : "Close"}</button></div>`, "#up-input");
+}
+function afterUpload(){ endCrop(); if(SH && SH.back) openCustomize(); else closeSheet(); }
+function status(msg){ const st = document.getElementById("up-status"); if(st) st.textContent = msg; }
+async function uploadBlob(b, type){
+  if(!SH || SH.mode !== "upload" || SH.busy || !b) return;
+  const target = SH.target;
+  SH.busy = true; status("Uploading…");
+  document.querySelectorAll("#up-foot .btn, #drop .btn").forEach(x => x.disabled = true);
+  try{
+    const r = await S.assets.upload(b, { type });
+    await applyAsset(target, r.id);
+    toast(target.kind === "bg" ? "Background updated" : target.kind === "banner" || target.kind === "goal" ? "Header art updated" : "Icon updated");
+    afterUpload();
+  }catch(e){
+    if(SH) SH.busy = false;
+    document.querySelectorAll("#up-foot .btn, #drop .btn").forEach(x => x.disabled = false);
+    const c = e && e.code;
+    status(c === "too_large" ? "That image is too big (20 MB max, 2 MB for SVG)." :
+      c === "unsupported_type" ? "That file type won't work. Use a PNG, JPG, GIF, WebP or SVG image." :
+      c === "quota_or_state" ? "Image storage is full." : "Upload failed" + (c ? " (" + c + ")" : "") + ". Try again.");
+  }
+}
+
+/* ---- cropper ---- */
+let CR = null;
+function endCrop(){ if(CR){ try{ URL.revokeObjectURL(CR.url); }catch(_){} CR = null; } }
+function gotFile(f){
+  if(!SH || SH.mode !== "upload" || SH.busy || !f) return;
+  const type = fileType(f);
+  if(!type){ status("That file type won't work. Use a PNG, JPG, GIF, WebP or SVG image."); return; }
+  if(type === "image/gif" || type === "image/svg+xml"){ uploadBlob(f, type); return; } // keep animation / vectors intact
+  endCrop();
+  const url = URL.createObjectURL(f), img = new Image();
+  img.onload = () => {
+    CR = { img, url, file:f, type, aspect: defaultAspect(SH.target), zoom:1, x:0, y:0, s:1, ptrs:new Map(), pinch:null };
+    cropUI();
+  };
+  img.onerror = () => { status("Couldn't read that image. Try another one."); try{ URL.revokeObjectURL(url); }catch(_){} };
+  img.src = url;
+}
+function cropUI(){
+  const t = SH.target, drop = document.getElementById("drop");
+  const chips = ASPECTS[t.kind] ? `<div class="chips">${ASPECTS[t.kind].map(([n,v]) => `<button type="button" class="dchip" data-action="crop-aspect" data-aspect="${v}" aria-pressed="${Math.abs(v - CR.aspect) < 1e-6}">${n}</button>`).join("")}</div>` : "";
+  drop.className = "drop cropping";
+  drop.innerHTML = `
+    <span class="flabel">Crop it</span>
+    ${chips}
+    <div class="crop-wrap"><canvas id="crop" class="crop${isRound(t) ? " round" : ""}" aria-label="Crop preview. Drag to move the image."></canvas></div>
+    <label class="zoom"><span class="flabel">Zoom</span><input type="range" id="crop-zoom" min="1" max="4" step="0.01" value="1"></label>
+    <p class="muted">Drag to move. Pinch or use the slider to zoom.</p>
+    <p class="up-status" id="up-status" aria-live="polite"></p>`;
+  document.getElementById("up-foot").innerHTML = `<button class="btn ghost" data-action="crop-skip">Upload without cropping</button>
+    <span style="display:flex;gap:8px"><button class="btn" data-action="crop-again">Pick another</button><button class="btn primary" data-action="crop-use">Use this crop</button></span>`;
+  layoutCrop(true);
+  const c = document.getElementById("crop");
+  c.addEventListener("pointerdown", e => { c.setPointerCapture(e.pointerId); CR.ptrs.set(e.pointerId, { x:e.clientX, y:e.clientY }); CR.pinch = null; });
+  c.addEventListener("pointermove", e => {
+    if(!CR || !CR.ptrs.has(e.pointerId)) return;
+    const prev = CR.ptrs.get(e.pointerId), cur = { x:e.clientX, y:e.clientY };
+    CR.ptrs.set(e.pointerId, cur);
+    if(CR.ptrs.size === 1){ CR.x += cur.x - prev.x; CR.y += cur.y - prev.y; paint(); }
+    else if(CR.ptrs.size === 2){
+      const [p1, p2] = [...CR.ptrs.values()], d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+      if(CR.pinch){ setZoom(CR.zoom * d / CR.pinch); }
+      CR.pinch = d;
+    }
+  });
+  const up = e => { if(CR){ CR.ptrs.delete(e.pointerId); CR.pinch = null; } };
+  c.addEventListener("pointerup", up); c.addEventListener("pointercancel", up);
+  c.addEventListener("wheel", e => { e.preventDefault(); setZoom(CR.zoom * (e.deltaY < 0 ? 1.08 : 1/1.08)); }, { passive:false });
+  document.getElementById("crop-zoom").addEventListener("input", e => setZoom(Number(e.target.value)));
+}
+function layoutCrop(reset){
+  const c = document.getElementById("crop"); if(!c || !CR) return;
+  const wrap = c.parentElement, maxW = wrap.clientWidth || 300, maxH = Math.min(window.innerHeight * 0.5, 420);
+  let fw = maxW, fh = fw / CR.aspect;
+  if(fh > maxH){ fh = maxH; fw = fh * CR.aspect; }
+  const dpr = window.devicePixelRatio || 1;
+  c.style.width = fw + "px"; c.style.height = fh + "px";
+  c.width = Math.round(fw * dpr); c.height = Math.round(fh * dpr);
+  const iw = CR.img.naturalWidth, ih = CR.img.naturalHeight;
+  const oldCx = reset ? null : (fw / 2 - CR.x) / CR.s, oldCy = reset ? null : (fh / 2 - CR.y) / CR.s;
+  CR.fw = fw; CR.fh = fh; CR.dpr = dpr;
+  CR.min = Math.max(fw / iw, fh / ih);
+  if(reset){ CR.zoom = 1; const z = document.getElementById("crop-zoom"); if(z) z.value = 1; }
+  CR.s = CR.min * CR.zoom;
+  if(reset){ CR.x = (fw - iw * CR.s) / 2; CR.y = (fh - ih * CR.s) / 2; }
+  else { CR.x = fw / 2 - oldCx * CR.s; CR.y = fh / 2 - oldCy * CR.s; }
+  paint();
+}
+function setZoom(z){
+  if(!CR) return;
+  z = Math.max(1, Math.min(4, z));
+  const cx = (CR.fw / 2 - CR.x) / CR.s, cy = (CR.fh / 2 - CR.y) / CR.s;
+  CR.zoom = z; CR.s = CR.min * z;
+  CR.x = CR.fw / 2 - cx * CR.s; CR.y = CR.fh / 2 - cy * CR.s;
+  const r = document.getElementById("crop-zoom"); if(r && Math.abs(Number(r.value) - z) > 0.001) r.value = z;
+  paint();
+}
+function paint(){
+  const c = document.getElementById("crop"); if(!c || !CR) return;
+  const iw = CR.img.naturalWidth * CR.s, ih = CR.img.naturalHeight * CR.s;
+  CR.x = Math.min(0, Math.max(CR.fw - iw, CR.x));
+  CR.y = Math.min(0, Math.max(CR.fh - ih, CR.y));
+  const ctx = c.getContext("2d");
+  ctx.setTransform(CR.dpr, 0, 0, CR.dpr, 0, 0);
+  ctx.clearRect(0, 0, CR.fw, CR.fh);
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(CR.img, CR.x, CR.y, iw, ih);
+}
+function cropOut(){
+  return new Promise(resolve => {
+    const t = SH.target;
+    const long = isRound(t) ? 512 : 1600;
+    const ow = CR.aspect >= 1 ? long : Math.round(long * CR.aspect), oh = CR.aspect >= 1 ? Math.round(long / CR.aspect) : long;
+    const k = ow / CR.fw, c = document.createElement("canvas");
+    c.width = ow; c.height = oh;
+    const ctx = c.getContext("2d"); ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(CR.img, CR.x * k, CR.y * k, CR.img.naturalWidth * CR.s * k, CR.img.naturalHeight * CR.s * k);
+    c.toBlob(b => resolve(b), "image/webp", 0.9);
+  });
+}
+window.addEventListener("resize", () => { if(CR) layoutCrop(false); });
+
+document.addEventListener("change", e => {
+  if(e.target && e.target.id === "up-input"){ const f = e.target.files && e.target.files[0]; gotFile(f); }
+});
+document.addEventListener("dragover", e => {
+  const z = e.target.closest && e.target.closest("#drop"); if(!z) return;
+  e.preventDefault(); z.classList.add("over");
+});
+document.addEventListener("dragleave", e => {
+  const z = e.target.closest && e.target.closest("#drop"); if(z && !z.contains(e.relatedTarget)) z.classList.remove("over");
+});
+document.addEventListener("drop", e => {
+  const z = e.target.closest && e.target.closest("#drop"); if(!z) return;
+  e.preventDefault(); z.classList.remove("over");
+  const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; gotFile(f);
+});
+document.addEventListener("paste", e => {
+  if(!SH || SH.mode !== "upload" || !e.clipboardData) return;
+  const item = [...e.clipboardData.items].find(i => i.kind === "file" && i.type.startsWith("image/"));
+  if(item){ e.preventDefault(); gotFile(item.getAsFile()); }
+});
+
+document.addEventListener("click", e => {
+  if(e.target === backdrop){ closeSheet(); return; }
+  const b = e.target.closest("[data-action]");
+  if(!b) return;
+  const a = b.dataset.action, id = b.dataset.id;
+  if(!S.canWrite && !["edit","close"].includes(a)) return;
+  switch(a){
+    case "toggle": toggle(id); break;
+    case "tomorrow": moveTo(id, tomorrow()); break;
+    case "to-today": moveTo(id, today()); break;
+    case "edit": openTaskSheet(id); break;
+    case "add": openAddSheet(b.dataset.date || null, !!b.dataset.time); break;
+    case "close": closeSheet(); break;
+    case "sheet-move": { const d = b.dataset.date || null; saveTaskSheet(d); toast(d ? "Moved to " + label(d) : "Moved to no date"); break; }
+    case "sheet-save": saveTaskSheet(); break;
+    case "sheet-pick":
+      SH.date = b.dataset.date || null;
+      sheetEl.querySelectorAll('[data-action="sheet-pick"]').forEach(x => x.setAttribute("aria-pressed", String((x.dataset.date || null) === SH.date)));
+      break;
+    case "sheet-add": {
+      const title = document.getElementById("sh-title").value.trim();
+      if(!title){ document.getElementById("sh-title").focus(); break; }
+      addTask(title, document.getElementById("sh-goal").value || null, SH.date, document.getElementById("sh-time").value || null); closeSheet(); break;
+    }
+    case "sheet-delete": {
+      const tt = findTask(SH.id);
+      if(tt && tt.routineId){ const tid = SH.id; closeSheet(); removeTask(tid); toast("Skipped for this day"); break; }
+      if(!SH.armed){ SH.armed = true; b.classList.add("armed"); b.textContent = "Tap again to delete"; break; }
+      { const tid = SH.id; closeSheet(); removeTask(tid); toast("Task deleted"); }
+      break; }
+    case "clear-time": { const ti = document.getElementById("sh-time"); if(ti) ti.value = ""; break; }
+    case "routines": openRoutines(); break;
+    case "routine-edit": openRoutine(id || null); break;
+    case "routine-day": { const d = Number(b.dataset.day); SH.days = SH.days.includes(d) ? SH.days.filter(x => x !== d) : [...SH.days, d];
+      b.setAttribute("aria-pressed", String(SH.days.includes(d))); break; }
+    case "routine-preset": { SH.days = b.dataset.days.split(",").map(Number);
+      sheetEl.querySelectorAll('[data-action="routine-day"]').forEach(x => x.setAttribute("aria-pressed", String(SH.days.includes(Number(x.dataset.day))))); break; }
+    case "routine-save": saveRoutine(); break;
+    case "routine-delete":
+      if(!SH.armed){ SH.armed = true; b.classList.add("armed"); b.textContent = "Tap again to delete the routine"; break; }
+      { const rid = SH.id; write("routines/"+rid, () => S.db.doc("routines/"+rid).delete()); toast("Routine deleted"); openRoutines(); }
+      break;
+    case "goal-menu": openGoalSheet(id); break;
+    case "new-goal": openGoalSheet(null); break;
+    case "pick-color":
+      SH.color = b.dataset.color;
+      sheetEl.querySelectorAll('[data-action="pick-color"]').forEach(x => { const on = x.dataset.color === SH.color; x.setAttribute("aria-pressed", String(on)); x.innerHTML = on ? "✓" : "&nbsp;&nbsp;"; });
+      break;
+    case "goal-save": saveGoal(); break;
+    case "goal-delete":
+      if(!SH.armed){ SH.armed = true; b.classList.add("armed"); b.textContent = "Tap again: deletes the goal and its steps"; break; }
+      deleteGoal(SH.id); break;
+    case "customize": openCustomize(); break;
+    case "slot": pickFile({ kind:"slot", key: b.dataset.slot }); break;
+    case "slot-remove": setIcon(b.dataset.slot, null).then(() => { if(SH && SH.mode === "customize") openCustomize(); }); break;
+    case "banner-remove": saveSettings({ ...S.settings, bannerAsset:null }).then(() => { if(SH && SH.mode === "customize") openCustomize(); }); break;
+    case "sound": { const on = b.dataset.on === "true"; saveSettings({ ...S.settings, sound:on }).then(() => { if(on) playDone(false); if(SH && SH.mode === "customize") openCustomize(); }); break; }
+    case "bg-del": { const i = Number(b.dataset.i), list = bgList().filter((_,k) => k !== i);
+      saveSettings({ ...S.settings, bgAsset:null, bgAssets:list }).then(() => { if(SH && SH.mode === "customize") openCustomize(); }); break; }
+    case "bg-dim": saveSettings({ ...S.settings, bgDim: Number(b.dataset.dim) }).then(() => { if(SH && SH.mode === "customize") openCustomize(); }); break;
+    case "art": pickFile(b.dataset.target === "bg" ? { kind:"bg" } : b.dataset.target === "banner" ? { kind:"banner" } : b.dataset.target === "goal-icon" ? { kind:"goal-icon", id } : { kind:"goal", id }); break;
+    case "art-remove": closeSheet(); updGoal(id, { headerAsset:null }); break;
+    case "up-remove": { const t = SH.target; applyAsset(t, null); afterUpload(); break; }
+    case "up-back": afterUpload(); break;
+    case "crop-aspect": if(CR){ CR.aspect = Number(b.dataset.aspect); sheetEl.querySelectorAll('[data-action="crop-aspect"]').forEach(x => x.setAttribute("aria-pressed", String(x === b))); layoutCrop(true); } break;
+    case "crop-skip": if(CR) uploadBlob(CR.file, CR.type); break;
+    case "crop-again": if(SH && SH.mode === "upload"){ const t = SH.target, back = SH.back; endCrop(); if(back) SH.mode = "customize"; pickFile(t); if(!back) SH.back = false; } break;
+    case "crop-use": if(CR && !SH.busy){ cropOut().then(b => { if(!b){ status("Couldn't crop that image. Try uploading without cropping."); return; } uploadBlob(b, Object.values(TYPES).includes(b.type) ? b.type : "image/png"); }); } break;
+    case "goal-icon-remove": closeSheet(); updGoal(id, { icon:null }); break;
+  }
+});
+document.addEventListener("submit", e => {
+  const q = e.target.closest('[data-form="quick"]');
+  if(q){
+    e.preventDefault();
+    const input = q.querySelector("input"), title = input.value.trim();
+    if(!title) return;
+    input.value = "";
+    const pq = parseQuick(title);
+    addTask(pq.title || title, null, today(), pq.time);
+    if(pq.time) toast("Added at " + fmtTime(pq.time));
+    playTick();
+    return;
+  }
+  const f = e.target.closest('[data-form="add-step"]'); if(!f) return;
+  e.preventDefault();
+  const input = f.querySelector("input"), title = input.value.trim();
+  if(!title) return;
+  addTask(title, f.dataset.goal, null);
+  input.value = "";
+});
+document.addEventListener("toggle", e => {
+  const d = e.target; if(!d.matches || !d.matches("details.roadmap")) return;
+  d.open ? S.openRoad.add(d.dataset.goal) : S.openRoad.delete(d.dataset.goal);
+}, true);
+document.addEventListener("keydown", e => {
+  if(e.key === "Escape" && !backdrop.hidden) closeSheet();
+});
+document.addEventListener("focusout", () => { setTimeout(() => { if(S.pending && !typing()) render(); }, 0); });
+
+/* drag and drop between days */
+let dragId = null;
+document.addEventListener("dragstart", e => {
+  const li = e.target.closest && e.target.closest(".task[draggable]"); if(!li) return;
+  dragId = li.dataset.id; li.classList.add("dragging");
+  try{ e.dataTransfer.setData("text/plain", dragId); e.dataTransfer.effectAllowed = "move"; }catch(_){}
+});
+document.addEventListener("dragend", e => {
+  const li = e.target.closest && e.target.closest(".task"); li && li.classList.remove("dragging");
+  document.querySelectorAll(".day.over").forEach(d => d.classList.remove("over")); dragId = null;
+});
+document.addEventListener("dragover", e => {
+  const day = e.target.closest && e.target.closest("[data-drop]"); if(!day || !dragId) return;
+  e.preventDefault();
+  document.querySelectorAll(".day.over").forEach(d => d !== day && d.classList.remove("over"));
+  day.classList.add("over");
+});
+document.addEventListener("drop", e => {
+  const day = e.target.closest && e.target.closest("[data-drop]"); if(!day || !dragId) return;
+  e.preventDefault();
+  const id = dragId; dragId = null; day.classList.remove("over");
+  const t = findTask(id);
+  if(t && t.date !== day.dataset.drop) moveTo(id, day.dataset.drop);
+});
+
+let lastDay = today();
+let lastMin = "";
+setInterval(() => {
+  if(today() !== lastDay){ lastDay = today(); render(); return; }
+  const m = nowHM(); if(m.slice(0,4) !== lastMin){ lastMin = m.slice(0,4); if(backdrop.hidden) render(); }
+}, 60000);
+
+/* ---------- boot ---------- */
+function useCap(name){
+  return new Promise(resolve => {
+    let tries = 0;
+    (function tryUse(){
+      if(window.claude && typeof window.claude.use === "function"){
+        Promise.resolve(window.claude.use(name)).then(resolve, () => resolve(null));
+      } else if(++tries > 30){ resolve(null); }
+      else setTimeout(tryUse, 100);
+    })();
+  });
+}
+/* ---------- GitHub backend ----------
+   data.json in the private repo holds goals, tasks, routines and settings;
+   images live in images/. Changes are applied on screen at once, queued, and pushed
+   with the file's sha; if someone else (like Claude) pushed first, the page re-reads
+   and re-applies its queued changes. */
+const GH = { cfg:null, remote:null, sha:null, etag:null, pending:[], pushing:false, again:false, timer:null, status:"" };
+const emptyData = () => ({ goals:{}, tasks:{}, routines:{}, settings:{ main:{} } });
+const clone = o => JSON.parse(JSON.stringify(o));
+function normalize(d){ d = d && typeof d === "object" ? d : {}; for(const k of ["goals","tasks","routines","settings"]) if(!d[k] || typeof d[k] !== "object") d[k] = {}; if(!d.settings.main) d.settings.main = {}; return d; }
+function api(path, opt = {}){
+  const c = GH.cfg;
+  return fetch("https://api.github.com/repos/" + encodeURIComponent(c.owner) + "/" + encodeURIComponent(c.repo) + path, {
+    method: opt.method || "GET", body: opt.body, cache:"no-store",
+    headers: { Authorization:"Bearer " + c.token, Accept: opt.accept || "application/vnd.github+json", "X-GitHub-Api-Version":"2022-11-28", ...(opt.headers || {}) }
+  });
+}
+const enc = str => { const b = new TextEncoder().encode(str); let bin = ""; for(let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(bin); };
+const dec = b64 => new TextDecoder().decode(Uint8Array.from(atob(String(b64).replace(/\s/g, "")), c => c.charCodeAt(0)));
+const blobB64 = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1] || ""); r.onerror = rej; r.readAsDataURL(b); });
+function merge(a, b){ for(const k of Object.keys(b)){ const v = b[k]; if(v && typeof v === "object" && !Array.isArray(v) && a[k] && typeof a[k] === "object" && !Array.isArray(a[k])) merge(a[k], v); else a[k] = v; } return a; }
+function applyOps(d, ops){
+  for(const o of ops){
+    const col = d[o.c] || (d[o.c] = {});
+    if(o.kind === "set") col[o.id] = clone(o.data);
+    else if(o.kind === "update"){ if(col[o.id]) merge(col[o.id], clone(o.data)); }
+    else if(o.kind === "delete") delete col[o.id];
+  }
+  return d;
+}
+function savePending(){ try{ localStorage.setItem(GHK + "-pending", JSON.stringify(GH.pending)); }catch(_){} }
+function setStatus(t){ GH.status = t; const el = document.getElementById("sync"); if(el) el.textContent = t; }
+function ghNotify(){
+  const v = applyOps(clone(GH.remote || emptyData()), GH.pending);
+  const arr = o => Object.entries(o || {}).map(([id, d]) => ({ id, ...d }));
+  S.goals = arr(v.goals); S.tasks = arr(v.tasks); S.routines = arr(v.routines); S.settings = { ...(v.settings.main || {}) };
+  S.got = { goals:true, tasks:true, settings:true, routines:true };
+  render();
+}
+async function ghFetch(force){
+  const r = await api("/contents/data.json", { headers: GH.etag && !force ? { "If-None-Match": GH.etag } : {} });
+  if(r.status === 304) return false;
+  if(r.status === 404){ if(!GH.remote){ GH.remote = emptyData(); GH.sha = null; return true; } return false; }
+  if(!r.ok){ const e = new Error("github " + r.status); e.status = r.status; throw e; }
+  GH.etag = r.headers.get("ETag");
+  const j = await r.json();
+  if(j.sha === GH.sha && GH.remote) return false;
+  GH.sha = j.sha; GH.remote = normalize(JSON.parse(dec(j.content || "") || "{}"));
+  return true;
+}
+function ghOp(kind, c, id, data){
+  GH.pending.push({ kind, c, id, data: data ? clone(data) : null });
+  savePending(); setStatus("Saving…"); ghNotify();
+  clearTimeout(GH.timer); GH.timer = setTimeout(ghPush, 700);
+  return Promise.resolve();
+}
+async function ghPush(){
+  if(GH.pushing){ GH.again = true; return; }
+  if(!GH.pending.length){ setStatus("Synced"); return; }
+  GH.pushing = true;
+  const batch = GH.pending.slice();
+  let ok = false;
+  for(let attempt = 0; attempt < 5 && !ok; attempt++){
+    const next = applyOps(clone(GH.remote || emptyData()), batch);
+    const body = { message:"Sunpath: update from the page", content: enc(JSON.stringify(next, null, 1)) };
+    if(GH.sha) body.sha = GH.sha;
+    let r = null;
+    try{ r = await api("/contents/data.json", { method:"PUT", body: JSON.stringify(body), headers:{ "Content-Type":"application/json" } }); }catch(_){}
+    if(r && r.ok){ const j = await r.json(); GH.sha = j.content && j.content.sha; GH.remote = next; GH.etag = null; GH.pending.splice(0, batch.length); savePending(); ok = true; break; }
+    if(r && (r.status === 409 || r.status === 422)){ GH.etag = null; try{ await ghFetch(true); }catch(_){} continue; }
+    GH.pushing = false;
+    setStatus(r && (r.status === 401 || r.status === 403) ? "Key rejected: tap to fix" : "Offline: will retry");
+    setTimeout(ghPush, 15000); return;
+  }
+  GH.pushing = false;
+  if(!ok){ setStatus("Couldn't save: will retry"); setTimeout(ghPush, 15000); return; }
+  ghNotify();
+  if(GH.again || GH.pending.length){ GH.again = false; clearTimeout(GH.timer); GH.timer = setTimeout(ghPush, 300); }
+  else setStatus("Synced");
+}
+const rid = (n = 20) => Array.from(crypto.getRandomValues(new Uint8Array(n)), b => "abcdefghijklmnopqrstuvwxyz0123456789"[b % 36]).join("");
+const ghDb = {
+  doc(path){ const [c, id] = path.split("/"); return { id, path, set: d => ghOp("set", c, id, d), update: d => ghOp("update", c, id, d), delete: () => ghOp("delete", c, id) }; },
+  collection(c){ return { doc(id){ return ghDb.doc(c + "/" + (id || rid())); } }; }
+};
+const EXT = { "image/png":"png", "image/jpeg":"jpg", "image/gif":"gif", "image/webp":"webp", "image/svg+xml":"svg" };
+const ghAssets = {
+  async upload(b, opt = {}){
+    const type = (opt && opt.type) || b.type, ext = EXT[type];
+    if(!ext){ const e = new Error("type"); e.code = "unsupported_type"; throw e; }
+    if(b.size > 20 * 1024 * 1024){ const e = new Error("big"); e.code = "too_large"; throw e; }
+    const id = rid(24) + "." + ext;
+    const r = await api("/contents/images/" + id, { method:"PUT", headers:{ "Content-Type":"application/json" }, body: JSON.stringify({ message:"Sunpath: add image", content: await blobB64(b) }) }).catch(() => null);
+    if(!r || !r.ok){ const e = new Error("upload"); e.code = r && (r.status === 401 || r.status === 403) ? "upstream_auth" : "store_unavailable"; throw e; }
+    const url = URL.createObjectURL(b); IMG.set(id, url);
+    try{ const cache = await caches.open("sunpath-img"); await cache.put("https://img.sunpath.local/" + id, new Response(b)); }catch(_){}
+    return { id, url, sizeBytes: b.size, contentType: type };
+  }
+};
+function ghImg(id){
+  if(IMG.has(id)) return Promise.resolve(IMG.get(id));
+  if(IMG_LOADING.has(id)) return IMG_LOADING.get(id);
+  const p = (async () => {
+    let b = null;
+    try{ const cache = await caches.open("sunpath-img"); const hit = await cache.match("https://img.sunpath.local/" + id); if(hit) b = await hit.blob(); }catch(_){}
+    if(!b){
+      if(!GH.cfg) throw new Error("no config");
+      const r = await api("/contents/images/" + encodeURIComponent(id), { accept:"application/vnd.github.raw" });
+      if(!r.ok) throw new Error("img " + r.status);
+      const raw = await r.blob(), ext = id.split(".").pop();
+      const type = Object.keys(EXT).find(k => EXT[k] === ext) || raw.type;
+      b = new Blob([raw], { type });
+      try{ const cache = await caches.open("sunpath-img"); await cache.put("https://img.sunpath.local/" + id, new Response(b)); }catch(_){}
+    }
+    const u = URL.createObjectURL(b); IMG.set(id, u); IMG_LOADING.delete(id); return u;
+  })();
+  p.catch(() => IMG_LOADING.delete(id));
+  IMG_LOADING.set(id, p);
+  return p;
+}
+function ghSetup(err){
+  const guess = (/^([^.]+)\.github\.io$/.exec(location.hostname) || [])[1] || "";
+  const c = ghCfg() || {};
+  S.note = "";
+  document.getElementById("note").innerHTML = `<form class="card sticker setup" data-form="gh-setup">
+    <h2 style="font-family:var(--display);font-weight:600;margin:0 0 6px">Connect your planner</h2>
+    <p class="muted" style="margin-bottom:12px">This page saves to your private GitHub repo. Paste your fine-grained token once on this device. It stays only in this browser.</p>
+    ${err ? `<p class="note" style="margin:0 0 12px">${esc(err)}</p>` : ""}
+    <div class="field"><label for="gh-owner">GitHub username</label><input id="gh-owner" value="${esc(c.owner || guess)}" autocomplete="username" required></div>
+    <div class="field"><label for="gh-repo">Data repo</label><input id="gh-repo" value="${esc(c.repo || "sunpath-data")}" required></div>
+    <div class="field"><label for="gh-token">Token</label><input id="gh-token" type="password" value="" placeholder="github_pat_…" autocomplete="off" required></div>
+    <div class="sheet-foot"><span></span><button class="btn primary" type="submit">Connect</button></div>
+  </form>`;
+}
+async function ghConnect(owner, repo, token){
+  GH.cfg = { owner, repo, token };
+  try{
+    const r = await api("");
+    if(r.status === 401) return ghSetup("GitHub didn't accept that token. Check that you copied all of it.");
+    if(r.status === 404) return ghSetup("Couldn't find " + owner + "/" + repo + ". Check the names, and that the token has access to that repo.");
+    if(!r.ok) return ghSetup("GitHub answered with an error (" + r.status + "). Try again in a minute.");
+  }catch(_){ return ghSetup("Couldn't reach GitHub. Check your connection."); }
+  try{ localStorage.setItem(GHK, JSON.stringify(GH.cfg)); }catch(_){}
+  document.getElementById("note").innerHTML = "";
+  ghStart();
+}
+async function ghStart(){
+  S.db = ghDb; S.assets = ghAssets; S.canWrite = true;
+  try{ GH.pending = JSON.parse(localStorage.getItem(GHK + "-pending") || "[]"); }catch(_){ GH.pending = []; }
+  try{ await ghFetch(true); }
+  catch(e){
+    if(e.status === 401 || e.status === 403){ return ghSetup("Your token stopped working. Paste a new one."); }
+    S.note = "Can't reach GitHub right now. Showing what's saved on this device; changes will sync later.";
+  }
+  if(!GH.remote) GH.remote = emptyData();
+  setStatus(GH.pending.length ? "Saving…" : "Synced");
+  ghNotify();
+  if(GH.pending.length) ghPush();
+  setInterval(() => { if(document.visibilityState === "visible" && !GH.pushing) ghFetch().then(ch => { if(ch) ghNotify(); }).catch(() => {}); }, 20000);
+  document.addEventListener("visibilitychange", () => {
+    if(document.visibilityState === "visible") ghFetch().then(ch => { if(ch) ghNotify(); }).catch(() => {});
+    else if(GH.pending.length){ clearTimeout(GH.timer); ghPush(); }
+  });
+}
+function ghSettingsSheet(){
+  SH = { mode:"gh" };
+  showSheet(`<h4 id="sheet-h">Sync</h4>
+    <p class="muted" style="margin-bottom:12px">Saving to <b>${esc(GH.cfg.owner)}/${esc(GH.cfg.repo)}</b> on GitHub. Status: ${esc(GH.status || "Synced")}.</p>
+    <div class="sheet-foot"><button class="btn danger" data-action="gh-forget">Disconnect this device</button>
+      <span style="display:flex;gap:8px"><button class="btn" data-action="gh-sync">Sync now</button><button class="btn primary" data-action="close">Done</button></span></div>`, ".btn");
+}
+document.addEventListener("submit", e => {
+  const f = e.target.closest('[data-form="gh-setup"]'); if(!f) return;
+  e.preventDefault();
+  const v = id => document.getElementById(id).value.trim();
+  ghConnect(v("gh-owner"), v("gh-repo"), v("gh-token"));
+});
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-action]"); if(!b) return;
+  const a = b.dataset.action;
+  if(a === "gh-settings") ghSettingsSheet();
+  else if(a === "gh-sync"){ setStatus("Syncing…"); (GH.pending.length ? ghPush() : ghFetch(true).then(ch => { if(ch) ghNotify(); setStatus("Synced"); })).catch(() => setStatus("Offline: will retry")); }
+  else if(a === "gh-forget"){
+    if(!SH || !SH.armed){ SH.armed = true; b.classList.add("armed"); b.textContent = "Tap again to disconnect"; return; }
+    try{ localStorage.removeItem(GHK); }catch(_){}
+    location.reload();
+  }
+});
+
+(async function boot(){
+  render();
+  if(GH_MODE){
+    S.got = { goals:false, tasks:false, settings:false, routines:false };
+    const c = ghCfg();
+    if(c && c.token){ GH.cfg = c; ghStart(); }
+    else { S.got = { goals:true, tasks:true, settings:true, routines:true }; S.canWrite = false; render(); ghSetup(); }
+    return;
+  }
+  const slow = setTimeout(() => {
+    if(!S.got.tasks || !S.got.goals){ S.note = "Can't reach your tracker yet. It will fill in once it connects."; render(); }
+  }, 10000);
+  const db = await useCap("db");
+  if(!db){
+    clearTimeout(slow);
+    S.got = { goals:true, tasks:true, settings:true };
+    S.canWrite = false;
+    S.note = "Open this page on claude.ai while signed in to see and change your goals.";
+    render(); return;
+  }
+  S.db = db;
+  try{
+    const user = await useCap("user");
+    if(user && typeof user.can === "function"){ const c = await user.can("data.write"); if(c === false) S.canWrite = false; }
+  }catch(_){}
+  try{ S.assets = S.canWrite ? await useCap("assets") : null; }catch(_){ S.assets = null; }
+  const settle = (snap) => { if(!snap.metadata.fromCache && S.got.tasks && S.got.goals){ clearTimeout(slow); if(S.note.startsWith("Can't reach")) S.note = ""; } };
+  const fail = (what) => (e) => { clearTimeout(slow); S.got[what] = true; S.note = e && e.code === "revoked" ? "" : "Lost the connection to your tracker. Reload the page to try again."; render(); };
+  db.collection("goals").onSnapshot(s => { S.goals = s.docs.map(d => ({ id:d.id, ...d.data() })); S.got.goals = true; settle(s); render(); }, fail("goals"));
+  db.collection("tasks").onSnapshot(s => { S.tasks = s.docs.map(d => ({ id:d.id, ...d.data() })); S.got.tasks = true; settle(s); render(); }, fail("tasks"));
+  db.collection("routines").onSnapshot(s => { S.routines = s.docs.map(d => ({ id:d.id, ...d.data() })); S.got.routines = true; render(); }, fail("routines"));
+  db.doc("settings/main").onSnapshot(s => { S.settings = s.exists ? { ...s.data() } : {}; S.got.settings = true; render(); }, fail("settings"));
+})();
+})();
+</script>
+</body>
+</html>
